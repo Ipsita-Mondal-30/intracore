@@ -19,7 +19,9 @@ export default {
         border: "var(--ic-border)",
         primary: {
           DEFAULT: "var(--ic-primary)",
+          hover: "var(--ic-primary-hover)",
           soft: "var(--ic-primary-soft)",
+          outline: "var(--ic-primary-outline)",
         },
         success: "var(--ic-success)",
         danger: "var(--ic-danger)",

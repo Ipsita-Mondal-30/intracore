@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, type Resolver } from "react-hook-form";
+import { useForm, type FieldPath, type Resolver, type UseFormRegister } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { LeadPriority, LeadStatus } from "@prisma/client";
@@ -203,6 +203,20 @@ export function DialUpdateCustomerModal({
     );
   }, [lead.notes, lead.callRecords]);
 
+  const genderField = customFields.find((f) => f.key === "gender");
+  const categoryField = customFields.find((f) => f.key === "category");
+  const educationFields = customFields.filter(
+    (f) => f.key !== "gender" && f.key !== "category",
+  );
+  const genderOptions =
+    genderField && Array.isArray(genderField.options)
+      ? (genderField.options as string[])
+      : ["Male", "Female"];
+  const categoryOptions =
+    categoryField && Array.isArray(categoryField.options)
+      ? (categoryField.options as string[])
+      : ["GEN", "SC/ST", "OBC", "Others"];
+
   return (
     <Dialog
       open={open}
@@ -226,24 +240,26 @@ export function DialUpdateCustomerModal({
           </button>
         </div>
 
-        <div className="px-6 pt-4">
+        <div className="ic-modal-brand" aria-hidden>
+          S
+        </div>
+
+        <div className="px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <UnderlineTabs
               tabs={[
                 { id: "preferences", label: "Preferences" },
                 { id: "notes", label: "Notes & Call Records" },
+                { id: "share", label: "Share" },
               ]}
               value={tab}
               onChange={setTab}
               className="flex-1"
+              activeColor="primary"
             />
             {lead.phone ? (
               <a href={`tel:${lead.phone}`}>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="rounded-lg bg-[#3b82f6] hover:bg-[#2563eb]"
-                >
+                <Button type="button" size="sm" className="rounded-lg">
                   <Phone className="h-3.5 w-3.5" />
                   Call
                 </Button>
@@ -252,12 +268,27 @@ export function DialUpdateCustomerModal({
           </div>
         </div>
 
-        {tab === "preferences" ? (
+        {tab === "share" ? (
+          <div className="space-y-5 px-6 py-8 text-center">
+            <p className="text-sm text-muted">
+              Share options will appear here when integrations are enabled.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-w-28 rounded-lg border-primary text-primary"
+              onClick={requestClose}
+            >
+              Close
+            </Button>
+          </div>
+        ) : tab === "preferences" ? (
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="space-y-5 px-6 py-5"
           >
             <input type="hidden" {...register("leadId")} />
+            <input type="hidden" {...register("status")} />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Student Name">
@@ -293,13 +324,34 @@ export function DialUpdateCustomerModal({
               </Field>
             </div>
 
-            <Field label="Comments">
+            <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Comments" className="sm:col-span-2">
               <Textarea
                 {...register("comments")}
                 rows={3}
                 placeholder="Add call notes or comments"
               />
             </Field>
+
+            {genderField ? (
+              <RadioRow
+                legend="Gender"
+                name={`customFields.${genderField.key}` as FieldPath<DialUpdateFormValues>}
+                register={register}
+                defaultValue={defaultValues.customFields?.[genderField.key] ?? genderOptions[0]}
+                options={genderOptions.map((value) => ({ value, label: value }))}
+              />
+            ) : null}
+
+            {categoryField ? (
+              <RadioRow
+                legend="Category"
+                name={`customFields.${categoryField.key}` as FieldPath<DialUpdateFormValues>}
+                register={register}
+                defaultValue={defaultValues.customFields?.[categoryField.key] ?? categoryOptions[0]}
+                options={categoryOptions.map((value) => ({ value, label: value }))}
+              />
+            ) : null}
 
             <RadioRow
               legend="Priority"
@@ -313,9 +365,9 @@ export function DialUpdateCustomerModal({
               ]}
             />
 
-            {customFields.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {customFields.map((field) => (
+            {educationFields.length > 0 ? (
+              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+                {educationFields.map((field) => (
                   <CustomFieldInput
                     key={field.id}
                     field={field}
@@ -325,25 +377,13 @@ export function DialUpdateCustomerModal({
                 ))}
               </div>
             ) : null}
-
-            <RadioRow
-              legend="Status"
-              name="status"
-              register={register}
-              defaultValue={defaultValues.status}
-              options={[
-                { value: LeadStatus.QUALIFIED, label: "Interested" },
-                { value: LeadStatus.CONVERTED, label: "Confirmed" },
-                { value: LeadStatus.UNQUALIFIED, label: "Not-Interested" },
-                { value: LeadStatus.OPEN, label: "Potential" },
-              ]}
-            />
+            </div>
 
             <div className="flex justify-center gap-3 pb-2 pt-2">
               <Button
                 type="submit"
                 disabled={pending || !canEdit}
-                className="min-w-28 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb]"
+                className="min-w-28 rounded-lg"
               >
                 {pending ? "Updating…" : "Update"}
               </Button>
@@ -460,12 +500,14 @@ export function DialUpdateCustomerModal({
 function Field({
   label,
   children,
+  className,
 }: {
   label: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div>
+    <div className={className}>
       <Label className="mb-1.5 text-xs text-muted">{label}</Label>
       {children}
     </div>
@@ -480,13 +522,13 @@ function RadioRow({
   options,
 }: {
   legend: string;
-  name: "priority" | "status";
-  register: ReturnType<typeof useForm<DialUpdateFormValues>>["register"];
+  name: FieldPath<DialUpdateFormValues>;
+  register: UseFormRegister<DialUpdateFormValues>;
   defaultValue?: string;
   options: { value: string; label: string }[];
 }) {
   return (
-    <fieldset>
+    <fieldset className="sm:col-span-2">
       <legend className="mb-2 text-xs font-medium text-muted">{legend}</legend>
       <div className="flex flex-wrap gap-4">
         {options.map((option) => (
@@ -499,7 +541,7 @@ function RadioRow({
               {...register(name)}
               value={option.value}
               defaultChecked={defaultValue === option.value}
-              className="accent-[#3b82f6]"
+              className="accent-[var(--ic-primary)]"
             />
             {option.label}
           </label>

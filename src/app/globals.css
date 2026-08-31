@@ -4,28 +4,48 @@
 
 :root {
   /* Surfaces */
-  --ic-canvas: #e8ecf1;
+  --ic-canvas: #f3f4f6;
   --ic-surface: #ffffff;
-  --ic-surface-muted: #f4f6f9;
+  --ic-surface-muted: #f9fafb;
   --ic-sidebar: #ffffff;
   --ic-rail: #f7f8fa;
+  --ic-table-header: #f3f4f6;
+  --ic-table-row-hover: #eef2f7;
 
   /* Text */
-  --ic-foreground: #1a1d26;
+  --ic-foreground: #111827;
   --ic-muted: #6b7280;
-  --ic-subtle: #9aa3b2;
+  --ic-subtle: #9ca3af;
 
   /* Borders */
   --ic-border: #e5e7eb;
   --ic-border-strong: #d1d5db;
 
-  /* Brand / accents (from Figma) */
-  --ic-primary: #2f6bff;
-  --ic-primary-soft: #e8efff;
-  --ic-nav-active: #2a2f3a;
+  /* Brand / accents (Figma re-engaged) */
+  --ic-primary: #3b82f6;
+  --ic-primary-hover: #2563eb;
+  --ic-primary-soft: #eff6ff;
+  --ic-primary-outline: #bfdbfe;
+  --ic-nav-active: #2d2d2d;
   --ic-success: #16a34a;
   --ic-danger: #ef4444;
+  --ic-reengaged-date: #ef4444;
   --ic-warning: #f59e0b;
+
+  /* Badges & chips */
+  --ic-private-bg: #ffe4e8;
+  --ic-private-text: #e11d48;
+  --ic-action-chip-border: #e5e7eb;
+  --ic-action-chip-active-border: var(--ic-primary);
+  --ic-action-chip-active-text: var(--ic-primary);
+
+  /* Tabs */
+  --ic-tab-active: var(--ic-primary);
+  --ic-tab-inactive: var(--ic-muted);
+
+  /* Phone / call affordances */
+  --ic-phone-btn-bg: #eff6ff;
+  --ic-phone-btn-text: var(--ic-primary);
 
   /* Module rail accents */
   --ic-module-orange: #ff8a3d;
@@ -65,7 +85,7 @@
   }
 }
 
-@layer utilities {
+@layer components {
   .ic-card {
     @apply rounded-[var(--radius-card)] border border-[var(--ic-border)] bg-[var(--ic-surface)];
     box-shadow: var(--shadow-card);
@@ -74,5 +94,85 @@
   .ic-panel {
     @apply rounded-[var(--radius-panel)] bg-[var(--ic-surface)];
     box-shadow: var(--shadow-card);
+  }
+
+  .ic-reengaged-date {
+    color: var(--ic-reengaged-date);
+    font-weight: 500;
+  }
+
+  .ic-page-title {
+    @apply text-[28px] font-bold tracking-tight text-foreground;
+  }
+
+  .ic-page-subtitle {
+    @apply text-sm text-muted;
+  }
+
+  .ic-private-badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium;
+    background: var(--ic-private-bg);
+    color: var(--ic-private-text);
+  }
+
+  .ic-academic-select {
+    @apply h-9 min-w-[120px] rounded-lg border bg-white px-3 text-xs font-medium text-foreground;
+    border-color: var(--ic-border-strong);
+  }
+
+  .ic-toolbar-btn {
+    @apply inline-flex h-9 items-center gap-1.5 rounded-lg border bg-white px-3 text-xs font-medium text-foreground transition;
+    border-color: var(--ic-border);
+  }
+
+  .ic-toolbar-btn:hover {
+    background: var(--ic-surface-muted);
+  }
+
+  .ic-toolbar-btn--filter {
+    border-color: var(--ic-primary-outline);
+    color: var(--ic-primary);
+    background: var(--ic-primary-soft);
+  }
+
+  .ic-phone-call-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full transition;
+    background: var(--ic-phone-btn-bg);
+    color: var(--ic-phone-btn-text);
+  }
+
+  .ic-phone-call-btn:hover {
+    background: var(--ic-primary-outline);
+  }
+
+  .ic-action-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition;
+    border-color: var(--ic-action-chip-border);
+    color: var(--ic-muted);
+    background: white;
+  }
+
+  .ic-action-chip:hover {
+    @apply text-foreground;
+  }
+
+  .ic-action-chip--active {
+    border-color: var(--ic-action-chip-active-border);
+    color: var(--ic-action-chip-active-text);
+    background: white;
+  }
+
+  .ic-action-chip--disabled {
+    @apply cursor-default opacity-80;
+  }
+
+  .ic-modal-brand {
+    @apply mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white;
+    background: var(--ic-primary);
+  }
+
+  .ic-audio-player {
+    @apply mt-1 h-9 w-full max-w-md;
+    accent-color: var(--ic-primary);
   }
 }

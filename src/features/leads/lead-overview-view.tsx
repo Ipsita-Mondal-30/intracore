@@ -5,15 +5,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
+  Ban,
   FileText,
+  Mail,
+  MessageSquare,
   Phone,
   RefreshCw,
+  Share2,
+  UserPlus,
+  Users,
   X,
 } from "lucide-react";
 import {
   PrivateAccessBadge,
   SectionPageHeader,
 } from "@/components/layout/section-page-header";
+import { ReEngagedPageMeta } from "@/components/leads/reengaged-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -30,6 +37,9 @@ import {
   formatShortDateTime,
   shortLeadId,
 } from "@/features/leads/reengaged-format";
+import { cn } from "@/lib/utils";
+
+const PAGE_SUBTITLE = "Manage and track your student records";
 
 const OVERVIEW_TABS = [
   { id: "notes", label: "Notes & Call Records" },
@@ -59,7 +69,7 @@ export function LeadOverviewView({
   stages,
   customFields,
   lastUpdated,
-  backHref = "/leads",
+  backHref = "/leads/re-engaged",
   canEdit = true,
 }: {
   lead: LeadOverviewLead;
@@ -122,6 +132,7 @@ export function LeadOverviewView({
       description: note.content,
       agent: note.author.name ?? note.author.email,
       did: "—",
+      recordingPath: null as string | null,
     }));
     const calls = lead.callRecords.map((call) => ({
       kind: "call" as const,
@@ -129,8 +140,10 @@ export function LeadOverviewView({
       at: call.calledAt,
       dialed: call.phoneNumber ?? "—",
       description:
-        [call.outcome, call.notes].filter(Boolean).join(" — ") ||
-        "Call logged",
+        call.notes?.trim()
+          ? `Reason : ${call.notes}`
+          : [call.outcome, call.notes].filter(Boolean).join(" — ") ||
+            "Call logged",
       agent: call.user.name ?? call.user.email,
       did: call.didNumber ?? "—",
       recordingPath: call.recordingPath ?? null,
@@ -143,16 +156,16 @@ export function LeadOverviewView({
   return (
     <div>
       <SectionPageHeader
-        subtitle="Manage and track your leads"
-        title="Lead"
+        subtitle={PAGE_SUBTITLE}
+        title="Re-engaged"
         badge={<PrivateAccessBadge />}
-        meta={`Last Update ${lastUpdated}`}
+        actions={<ReEngagedPageMeta lastUpdated={lastUpdated} />}
       />
 
       <div className="ic-card p-5 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold">
-            Overview {shortLeadId(lead.id)}
+            Overview{shortLeadId(lead.id)}
           </h2>
           <Link
             href={backHref}
@@ -162,29 +175,11 @@ export function LeadOverviewView({
           </Link>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-start gap-4">
+        <div className="mb-4 flex flex-wrap items-start gap-4 border-b border-[var(--ic-border)] pb-4">
           <Avatar name={lead.fullName} size="lg" />
           <div>
             <p className="text-lg font-semibold">{lead.fullName}</p>
             <p className="text-sm text-muted">{subtitle}</p>
-            <div className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
-              <p>
-                <span className="text-muted">Email:</span>{" "}
-                {lead.email ?? "—"}
-              </p>
-              <p>
-                <span className="text-muted">Phone:</span>{" "}
-                {lead.phone ?? "—"}
-              </p>
-              <p>
-                <span className="text-muted">Source:</span>{" "}
-                {lead.source?.name ?? "—"}
-              </p>
-              <p>
-                <span className="text-muted">Stage:</span>{" "}
-                {lead.stage?.name ?? "—"}
-              </p>
-            </div>
           </div>
         </div>
 
@@ -208,6 +203,13 @@ export function LeadOverviewView({
             label="Notes"
             onClick={() => setTab("notes")}
           />
+          <ActionChip icon={Share2} label="Share" disabled />
+          <ActionChip icon={Mail} label="Email" disabled />
+          <ActionChip icon={MessageSquare} label="SMS" disabled />
+          <ActionChip icon={UserPlus} label="EOI" disabled />
+          <ActionChip icon={Users} label="Referral" disabled />
+          <ActionChip icon={Users} label="Contacts" disabled />
+          <ActionChip icon={Ban} label="Do not Call" disabled />
           {lead.phone ? (
             <ActionChip
               icon={Phone}
@@ -222,7 +224,12 @@ export function LeadOverviewView({
           />
         </div>
 
-        <UnderlineTabs tabs={OVERVIEW_TABS} value={tab} onChange={setTab} />
+        <UnderlineTabs
+          tabs={OVERVIEW_TABS}
+          value={tab}
+          onChange={setTab}
+          activeColor={tab === "history" ? "foreground" : "primary"}
+        />
 
         <div className="mt-4">
           {tab === "notes" ? (
@@ -247,7 +254,7 @@ export function LeadOverviewView({
                   </RecordsTableCell>
                   <RecordsTableCell>{row.dialed}</RecordsTableCell>
                   <RecordsTableCell className="max-w-md">
-                    <div>{row.description}</div>
+                    <div className="text-sm">{row.description}</div>
                     {row.kind === "call" && row.recordingPath ? (
                       <CallRecordingPlayer
                         leadId={lead.id}
@@ -282,20 +289,22 @@ function ActionChip({
   icon: Icon,
   label,
   active,
+  disabled,
   onClick,
   href,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
   href?: string;
 }) {
-  const className = `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-    active
-      ? "border-[#3b82f6] text-[#3b82f6]"
-      : "border-[var(--ic-border)] text-muted hover:text-foreground"
-  }`;
+  const className = cn(
+    "ic-action-chip",
+    active && "ic-action-chip--active",
+    disabled && "ic-action-chip--disabled",
+  );
 
   if (href) {
     return (
@@ -307,7 +316,12 @@ function ActionChip({
   }
 
   return (
-    <button type="button" className={className} onClick={onClick}>
+    <button
+      type="button"
+      className={className}
+      onClick={onClick}
+      disabled={disabled}
+    >
       <Icon className="h-3.5 w-3.5" />
       {label}
     </button>

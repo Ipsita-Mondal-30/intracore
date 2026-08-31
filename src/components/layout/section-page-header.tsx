@@ -1,20 +1,13 @@
 import type { ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
 export function PrivateAccessBadge({ className }: { className?: string }) {
   return (
-    <Badge
-      tone="danger"
-      className={cn(
-        "rounded-full bg-[#ffe4e8] px-2.5 py-1 text-[11px] font-medium text-[#e11d48]",
-        className,
-      )}
-    >
+    <span className={cn("ic-private-badge", className)}>
       <Lock className="h-3 w-3" />
       Private Access
-    </Badge>
+    </span>
   );
 }
 
@@ -42,12 +35,10 @@ export function SectionPageHeader({
     >
       <div className="min-w-0">
         {subtitle ? (
-          <p className="text-sm text-muted">{subtitle}</p>
+          <p className="ic-page-subtitle">{subtitle}</p>
         ) : null}
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-[28px] font-bold tracking-tight text-foreground">
-            {title}
-          </h1>
+          <h1 className="ic-page-title">{title}</h1>
           {badge}
         </div>
       </div>

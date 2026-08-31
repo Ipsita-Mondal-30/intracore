@@ -7,12 +7,19 @@ export function UnderlineTabs({
   value,
   onChange,
   className,
+  activeColor = "primary",
 }: {
   tabs: { id: string; label: string }[];
   value: string;
   onChange: (id: string) => void;
   className?: string;
+  activeColor?: "primary" | "foreground";
 }) {
+  const activeBorder =
+    activeColor === "primary"
+      ? "border-[var(--ic-tab-active)] text-foreground"
+      : "border-foreground text-foreground";
+
   return (
     <div
       className={cn(
@@ -33,8 +40,8 @@ export function UnderlineTabs({
             className={cn(
               "-mb-px border-b-2 px-0.5 pb-3 text-sm transition",
               active
-                ? "border-foreground font-semibold text-foreground"
-                : "border-transparent text-muted hover:text-foreground",
+                ? cn("font-semibold", activeBorder)
+                : "border-transparent text-[var(--ic-tab-inactive)] hover:text-foreground",
             )}
           >
             {tab.label}

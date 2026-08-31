@@ -16,7 +16,7 @@ export function RecordsTable({
     <div className={cn("overflow-x-auto", className)}>
       <table className="w-full min-w-[720px] border-collapse text-left text-sm">
         <thead>
-          <tr className="bg-[var(--ic-surface-muted)] text-xs font-semibold text-muted">
+          <tr className="bg-[var(--ic-table-header)] text-xs font-semibold uppercase tracking-wide text-muted">
             {columns.map((column) => (
               <th
                 key={column.key}
@@ -59,7 +59,7 @@ export function RecordsTableRow({
   return (
     <tr
       className={cn(
-        "bg-white odd:bg-[var(--ic-surface-muted)]/60 transition hover:bg-[#eef2f7]",
+        "bg-white transition hover:bg-[var(--ic-table-row-hover)]",
         onClick ? "cursor-pointer" : null,
         className,
       )}

@@ -45,7 +45,7 @@ export function CallRecordingPlayer({
   }
 
   return (
-    <audio controls preload="none" className="mt-1 h-8 max-w-xs">
+    <audio controls preload="none" className="ic-audio-player">
       <source src={src} />
     </audio>
   );
