@@ -71,6 +71,7 @@ export function LeadOverviewView({
   lastUpdated,
   backHref = "/leads/re-engaged",
   canEdit = true,
+  openDialOnMount = false,
 }: {
   lead: LeadOverviewLead;
   stages: { id: string; name: string }[];
@@ -85,10 +86,11 @@ export function LeadOverviewView({
   lastUpdated: string;
   backHref?: string;
   canEdit?: boolean;
+  openDialOnMount?: boolean;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState("notes");
-  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(openDialOnMount);
 
   const summaryLines = useMemo(() => {
     const lines: string[] = [];

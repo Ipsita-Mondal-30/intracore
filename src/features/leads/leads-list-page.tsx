@@ -11,8 +11,7 @@ import {
 } from "@/features/leads/queries";
 import { LeadsWorkspace } from "@/features/leads/leads-workspace";
 import { perfTime } from "@/lib/perf";
-import { parseViewFilterConfig } from "@/lib/leads/view-filters";
-import type { ListColumnKey } from "@/lib/leads/view-filters";
+import { parseViewFilterConfig, CRM_LIST_COLUMNS, REENGAGED_LIST_COLUMNS, type ListColumnKey } from "@/lib/leads/view-filters";
 
 export type LeadListPreset = {
   status?: LeadStatus;
@@ -108,7 +107,12 @@ export async function LeadsListPage({
 
   const timezone = org?.timezone ?? "UTC";
 
-  const columns = (leadView?.columns as ListColumnKey[] | null) ?? undefined;
+  const columns =
+    viewSlug === "new-leads"
+      ? [...CRM_LIST_COLUMNS]
+      : viewSlug === "re-engaged"
+        ? [...REENGAGED_LIST_COLUMNS]
+        : ((leadView?.columns as ListColumnKey[] | null) ?? undefined);
   const viewFilters = leadView
     ? parseViewFilterConfig(leadView.filters)
     : undefined;
@@ -156,6 +160,7 @@ export async function LeadsListPage({
       canTransfer={hasPermission(tenant, "lead.transfer")}
       canStage={hasPermission(tenant, "lead.change_stage")}
       canDelete={hasPermission(tenant, "lead.delete")}
+      canChat={hasPermission(tenant, "chat.view")}
       title={resolvedTitle}
       breadcrumbs={resolvedBreadcrumbs}
       listTitle={resolvedListTitle}
@@ -164,6 +169,7 @@ export async function LeadsListPage({
       lockedInterested={preset?.interested ?? viewFilters?.interested}
       columns={columns}
       timezone={timezone}
+      crmLayout={Boolean(viewSlug)}
     />
   );
 }

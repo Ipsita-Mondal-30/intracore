@@ -1,5 +1,11 @@
+import { cache } from "react";
 import { prisma } from "@/lib/db/prisma";
-import { seedOrganizationLeadDefaults, ensureOrganizationLeadViews, ensureEducationCustomFields } from "@/lib/leads/seed-defaults";
+import {
+  seedOrganizationLeadDefaults,
+  ensureOrganizationLeadViews,
+  ensureEducationCustomFields,
+} from "@/lib/leads/seed-defaults";
+import { orgCache } from "@/lib/cache/request-cache";
 import type { Prisma } from "@prisma/client";
 import { leadListQuerySchema } from "@/lib/validations/leads";
 import type { TenantContext } from "@/lib/tenant";
@@ -91,16 +97,27 @@ const leadListInclude = {
 } satisfies Prisma.LeadInclude;
 
 export async function getLeadViewBySlug(organizationId: string, slug: string) {
-  await ensureOrganizationLeadViews(prisma, organizationId);
   return prisma.leadView.findFirst({
     where: { organizationId, slug, isActive: true },
   });
 }
 
-export async function getLeadNavViews(organizationId: string) {
-  await ensureOrganizationLeadViews(prisma, organizationId);
+async function loadLeadNavViews(organizationId: string) {
+  const hiddenNavCategories = ["ADMISSION", "FLAGGED"] as const;
+  const hiddenNavSlugs = [
+    "due-24h",
+    "due-48h",
+    "due-72h",
+    // Overlaps with New Leads (all status NEW)
+    "new-inquiry",
+  ] as const;
   const views = await prisma.leadView.findMany({
-    where: { organizationId, isActive: true },
+    where: {
+      organizationId,
+      isActive: true,
+      category: { notIn: [...hiddenNavCategories] },
+      slug: { notIn: [...hiddenNavSlugs] },
+    },
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
     select: {
       slug: true,
@@ -112,8 +129,6 @@ export async function getLeadNavViews(organizationId: string) {
 
   const categoryLabels: Record<string, string> = {
     HOME: "HOME",
-    ADMISSION: "ADMISSION / CONVERSION",
-    FLAGGED: "FLAGGED LEADS",
     REPORTS: "REPORTS",
   };
 
@@ -124,16 +139,28 @@ export async function getLeadNavViews(organizationId: string) {
     grouped.get(key)!.push(view);
   }
 
+  const seenHrefs = new Set<string>(["/leads/tasks", "/leads/import"]);
+
   return Array.from(grouped.entries()).map(([category, items]) => ({
     title: categoryLabels[category] ?? category,
     category,
-    items: items.map((v) => ({
-      href: v.href ?? `/leads/view/${v.slug}`,
-      label: v.name,
-      slug: v.slug,
-    })),
-  }));
+    items: items
+      .map((v) => ({
+        href: v.href ?? `/leads/view/${v.slug}`,
+        label: v.name,
+        slug: v.slug,
+      }))
+      .filter((item) => {
+        if (seenHrefs.has(item.href)) return false;
+        seenHrefs.add(item.href);
+        return true;
+      }),
+  })).filter((group) => group.items.length > 0);
 }
+
+export const getLeadNavViews = cache((organizationId: string) =>
+  orgCache("lead-nav", organizationId, () => loadLeadNavViews(organizationId), 300),
+);
 
 async function resolveListContext(
   tenant: TenantContext,
@@ -347,33 +374,49 @@ export async function getLeadReportsSummary(organizationId: string) {
 }
 
 export async function getLeadLookups(organizationId: string) {
-  let [sources, pipelines] = await Promise.all([
-    prisma.leadSource.findMany({
-      where: { organizationId, isActive: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.pipeline.findMany({
-      where: { organizationId, isActive: true },
-      include: { stages: { orderBy: { sortOrder: "asc" } } },
-      orderBy: { name: "asc" },
-    }),
-  ]);
-  const members = await prisma.organizationMember.findMany({
-    where: { organizationId, status: "ACTIVE" },
-    include: { user: { select: { id: true, name: true, email: true } } },
-  });
-  const teams = await prisma.team.findMany({
-    where: { organizationId },
-    orderBy: { name: "asc" },
-  });
-  const tags = await prisma.leadTag.findMany({
-    where: { organizationId },
-    orderBy: { name: "asc" },
-  });
-  const products = await prisma.leadProduct.findMany({
-    where: { organizationId, isActive: true },
-    orderBy: { name: "asc" },
-  });
+  return orgCache("lead-lookups", organizationId, () => loadLeadLookups(organizationId), 300);
+}
+
+async function loadLeadLookups(organizationId: string) {
+  const [sourcesResult, pipelinesResult, members, teams, tags, products, flags, customFields] =
+    await Promise.all([
+      prisma.leadSource.findMany({
+        where: { organizationId, isActive: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.pipeline.findMany({
+        where: { organizationId, isActive: true },
+        include: { stages: { orderBy: { sortOrder: "asc" } } },
+        orderBy: { name: "asc" },
+      }),
+      prisma.organizationMember.findMany({
+        where: { organizationId, status: "ACTIVE" },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      }),
+      prisma.team.findMany({
+        where: { organizationId },
+        orderBy: { name: "asc" },
+      }),
+      prisma.leadTag.findMany({
+        where: { organizationId },
+        orderBy: { name: "asc" },
+      }),
+      prisma.leadProduct.findMany({
+        where: { organizationId, isActive: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.leadFlagDefinition.findMany({
+        where: { organizationId, isActive: true },
+        orderBy: { sortOrder: "asc" },
+      }),
+      prisma.leadCustomFieldDefinition.findMany({
+        where: { organizationId, isActive: true },
+        orderBy: [{ section: "asc" }, { sortOrder: "asc" }],
+      }),
+    ]);
+
+  let sources = sourcesResult;
+  let pipelines = pipelinesResult;
 
   if (sources.length === 0 || pipelines.length === 0) {
     await seedOrganizationLeadDefaults(prisma, organizationId);
@@ -389,17 +432,6 @@ export async function getLeadLookups(organizationId: string) {
       }),
     ]);
   }
-
-  const [flags, customFields] = await Promise.all([
-    prisma.leadFlagDefinition.findMany({
-      where: { organizationId, isActive: true },
-      orderBy: { sortOrder: "asc" },
-    }),
-    prisma.leadCustomFieldDefinition.findMany({
-      where: { organizationId, isActive: true },
-      orderBy: [{ section: "asc" }, { sortOrder: "asc" }],
-    }),
-  ]);
 
   await ensureOrganizationLeadViews(prisma, organizationId);
   await ensureEducationCustomFields(prisma, organizationId);
@@ -661,7 +693,29 @@ export async function getLeadDetail(tenant: TenantContext, id: string) {
         orderBy: { createdAt: "desc" },
         take: 100,
       },
+      communications: {
+        where: { type: "EMAIL" },
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { occurredAt: "desc" },
+        take: 30,
+      },
     },
+  });
+}
+
+export async function listLeadEmails(tenant: TenantContext, limit = 200) {
+  return prisma.leadCommunication.findMany({
+    where: {
+      organizationId: tenant.organizationId,
+      type: "EMAIL",
+      lead: leadVisibilityWhere(tenant),
+    },
+    include: {
+      lead: { select: { id: true, fullName: true, email: true } },
+      user: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { occurredAt: "desc" },
+    take: limit,
   });
 }
 

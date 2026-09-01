@@ -2,20 +2,21 @@ import { NextResponse } from "next/server";
 import { TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { notifyFollowUpReminder } from "@/lib/email/crm-notify";
+import { sendFollowUpReminderEmails } from "@/lib/email/follow-up-reminders";
+import { getCronSecret } from "@/lib/email/config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 function authorize(request: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
+  const secret = getCronSecret() || process.env.CRON_SECRET?.trim();
   if (!secret) return false;
   const header = request.headers.get("authorization");
   return header === `Bearer ${secret}`;
 }
 
 /**
- * Hourly cron: remind assignees of pending follow-ups due in the next hour
- * (and overdue items that have never been reminded).
+ * Hourly cron: in-app + email reminders for due follow-ups, plus bucketed due emails.
  */
 export async function GET(request: Request) {
   if (!authorize(request)) {
@@ -67,11 +68,16 @@ export async function GET(request: Request) {
     }
   }
 
+  const bucketSummary = await sendFollowUpReminderEmails();
+
   return NextResponse.json({
     ok: true,
-    checked: due.length,
-    sent,
-    failed,
-    windowEnd: windowEnd.toISOString(),
+    hourly: {
+      checked: due.length,
+      sent,
+      failed,
+      windowEnd: windowEnd.toISOString(),
+    },
+    buckets: bucketSummary,
   });
 }

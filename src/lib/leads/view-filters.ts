@@ -25,6 +25,24 @@ export type LeadViewFilterConfig = {
   stageName?: string;
 };
 
+export const CRM_LIST_COLUMNS = [
+  "leadId",
+  "name",
+  "source",
+  "leadDate",
+  "status",
+] as const;
+
+export const REENGAGED_LIST_COLUMNS = [
+  "leadId",
+  "name",
+  "source",
+  "leadDate",
+  "reengagedDate",
+  "dueCall",
+  "status",
+] as const;
+
 export const DEFAULT_LIST_COLUMNS = [
   "leadId",
   "name",

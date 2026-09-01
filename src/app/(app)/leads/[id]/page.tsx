@@ -6,11 +6,15 @@ import { LeadOverviewView } from "@/features/leads/lead-overview-view";
 
 export default async function LeadDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const tenant = await requirePermission("lead.view");
   const { id } = await params;
+  const rawSearch = await searchParams;
+  const openDialOnMount = rawSearch.dial === "1" || rawSearch.dial === "true";
   const [lead, lookups] = await Promise.all([
     getLeadDetail(tenant, id),
     getLeadLookups(tenant.organizationId),
@@ -31,6 +35,7 @@ export default async function LeadDetailPage({
       }))}
       lastUpdated={format(new Date(), "h.mm a dd MMM yyyy")}
       canEdit={hasPermission(tenant, "lead.edit")}
+      openDialOnMount={openDialOnMount}
     />
   );
 }

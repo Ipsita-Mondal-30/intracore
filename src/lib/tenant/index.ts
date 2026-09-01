@@ -47,38 +47,12 @@ async function loadSessionContext(): Promise<SessionContext | null> {
     const dbUser = await ensurePrismaUser(user);
     authTimer.end();
 
-    const membershipTimer = perfTime("prisma.sessionMembership");
-    const membership = dbUser.activeOrganizationId
-      ? await prisma.organizationMember.findUnique({
-          where: {
-            organizationId_userId: {
-              organizationId: dbUser.activeOrganizationId,
-              userId: dbUser.id,
-            },
-          },
-        })
-      : await prisma.organizationMember.findFirst({
-          where: { userId: dbUser.id, status: MemberStatus.ACTIVE },
-          orderBy: { joinedAt: "asc" },
-        });
-    membershipTimer.end();
-
-    if (
-      membership &&
-      dbUser.activeOrganizationId !== membership.organizationId
-    ) {
-      await prisma.user.update({
-        where: { id: dbUser.id },
-        data: { activeOrganizationId: membership.organizationId },
-      });
-    }
-
     return {
       userId: dbUser.id,
       email: dbUser.email,
       name: dbUser.name,
-      activeOrganizationId: membership?.organizationId ?? null,
-      membershipId: membership?.id ?? null,
+      activeOrganizationId: dbUser.activeOrganizationId,
+      membershipId: null,
     };
   } catch (error) {
     authTimer.end();
@@ -139,6 +113,13 @@ async function loadOrganizationAccess(
       "You do not have access to this organization",
       403,
     );
+  }
+
+  if (session.activeOrganizationId !== membership.organizationId) {
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { activeOrganizationId: membership.organizationId },
+    });
   }
 
   const permissions = new Set(

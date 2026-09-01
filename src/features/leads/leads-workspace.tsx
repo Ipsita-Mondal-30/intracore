@@ -4,7 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Filter, LayoutGrid, Plus, Table2, Upload } from "lucide-react";
+import { Filter, LayoutGrid, Phone, Plus, RefreshCw, Search, Table2, Upload } from "lucide-react";
+import { LeadChatButton } from "@/features/chat/lead-chat-button";
 import { toast } from "sonner";
 import { bulkLeadAction, changeLeadStageAction } from "@/features/leads/actions";
 import { bulkTransferAction } from "@/features/leads/transfer-actions";
@@ -28,9 +29,16 @@ import {
 import { LOST_REASONS } from "@/lib/leads/lost-reasons";
 import {
   DEFAULT_LIST_COLUMNS,
+  CRM_LIST_COLUMNS,
   formatDueCallLabel,
   type ListColumnKey,
 } from "@/lib/leads/view-filters";
+import {
+  formatLeadDisplayId,
+  formatLeadListDate,
+  formatLeadListDateTime,
+  formatLeadStatusLabel,
+} from "@/lib/leads/display-formatters";
 
 export type LeadListRow = {
   id: string;
@@ -53,13 +61,13 @@ export type LeadListRow = {
 
 const COLUMN_LABELS: Record<string, string> = {
   leadId: "Lead ID",
-  name: "Lead",
+  name: "Student Name",
   company: "Company",
   contact: "Contact",
-  source: "Source",
-  leadDate: "Lead date",
-  reengagedDate: "Re-engaged",
-  dueCall: "Due call",
+  source: "Source Name",
+  leadDate: "Lead Date",
+  reengagedDate: "Re-engaged Date",
+  dueCall: "Due Call",
   stage: "Stage",
   status: "Status",
   priority: "Priority",
@@ -78,31 +86,27 @@ function toneForStatus(status: string) {
   return "neutral" as const;
 }
 
-function truncateLeadId(id: string) {
-  if (id.length <= 8) return id;
-  return `…${id.slice(-6)}`;
-}
 
 function renderLeadColumn(
   key: ListColumnKey,
   lead: LeadListRow,
   timezone: string,
+  canChat?: boolean,
+  showReengagedHighlight?: boolean,
 ) {
   switch (key) {
     case "leadId":
       return (
-        <span className="font-mono text-2xs text-muted" title={lead.id}>
-          {truncateLeadId(lead.id)}
-        </span>
+        <Link href={`/leads/${lead.id}`} className="font-medium text-primary hover:underline">
+          {formatLeadDisplayId(lead.id)}
+        </Link>
       );
     case "name":
       return (
-        <>
-          <Link href={`/leads/${lead.id}`} className="font-medium text-primary">
-            {lead.fullName}
-          </Link>
-          {lead.email ? <div className="text-2xs text-subtle">{lead.email}</div> : null}
-        </>
+        <div className="flex items-center gap-2">
+          <span>{lead.fullName}</span>
+          {canChat ? <LeadChatButton leadId={lead.id} /> : null}
+        </div>
       );
     case "company":
       return <span className="text-muted">{lead.company ?? "—"}</span>;
@@ -119,23 +123,23 @@ function renderLeadColumn(
     case "leadDate":
       return (
         <span className="text-muted">
-          {lead.createdAt ? format(new Date(lead.createdAt), "dd MMM yyyy") : "—"}
+          {lead.createdAt ? formatLeadListDate(lead.createdAt) : "—"}
         </span>
       );
     case "reengagedDate":
       return (
-        <span className="text-muted">
-          {lead.reEngagedAt ? format(new Date(lead.reEngagedAt), "dd MMM yyyy") : "—"}
+        <span className={showReengagedHighlight ? "font-medium text-red-600" : "text-muted"}>
+          {lead.reEngagedAt ? formatLeadListDateTime(lead.reEngagedAt) : "—"}
         </span>
       );
     case "dueCall": {
       const label = formatDueCallLabel(lead.nextFollowUpAt, lead.callbackAt, timezone);
-      return label ? <Badge tone="neutral">{label}</Badge> : "—";
+      return label ? <span>{label}</span> : "—";
     }
     case "stage":
       return lead.stage?.name ?? "—";
     case "status":
-      return <Badge tone={toneForStatus(lead.status)}>{lead.status}</Badge>;
+      return formatLeadStatusLabel(lead.status, lead.stage?.name);
     case "priority":
       return <Badge tone="neutral">{lead.priority}</Badge>;
     case "assigned":
@@ -190,6 +194,7 @@ export function LeadsWorkspace({
   canTransfer,
   canStage,
   canDelete,
+  canChat,
   title = "Leads",
   breadcrumbs = ["Overview", "Leads"],
   listTitle = "All leads",
@@ -198,6 +203,7 @@ export function LeadsWorkspace({
   lockedInterested,
   columns,
   timezone = "UTC",
+  crmLayout = false,
 }: {
   rows: LeadListRow[];
   total: number;
@@ -218,6 +224,7 @@ export function LeadsWorkspace({
   canTransfer: boolean;
   canStage: boolean;
   canDelete: boolean;
+  canChat?: boolean;
   title?: string;
   breadcrumbs?: string[];
   listTitle?: string;
@@ -226,6 +233,7 @@ export function LeadsWorkspace({
   lockedInterested?: boolean;
   columns?: string[];
   timezone?: string;
+  crmLayout?: boolean;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
@@ -234,7 +242,8 @@ export function LeadsWorkspace({
   const [pending, startTransition] = useTransition();
   const view = params.view === "kanban" ? "kanban" : "table";
   const q = params.q ?? "";
-  const activeColumns = columns ?? [...DEFAULT_LIST_COLUMNS];
+  const activeColumns = columns ?? (crmLayout ? [...CRM_LIST_COLUMNS] : [...DEFAULT_LIST_COLUMNS]);
+  const showReengagedHighlight = activeColumns.includes("reengagedDate");
 
   const queryString = useMemo(() => {
     const sp = new URLSearchParams(params);
@@ -319,15 +328,77 @@ export function LeadsWorkspace({
         }
       />
 
-      <section className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Total leads" value={stats.total} />
-        <KpiCard label="New" value={stats.newLeads} highlighted />
-        <KpiCard label="Converted" value={stats.converted} />
-        <KpiCard label="Follow-ups due" value={stats.followUpsDue} />
-      </section>
+      {!crmLayout ? (
+        <section className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard label="Total leads" value={stats.total} />
+          <KpiCard label="New" value={stats.newLeads} highlighted />
+          <KpiCard label="Converted" value={stats.converted} />
+          <KpiCard label="Follow-ups due" value={stats.followUpsDue} />
+        </section>
+      ) : null}
 
       <Card>
         <CardHeader className="flex-col items-stretch gap-3">
+          {crmLayout ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <form className="flex flex-1 flex-wrap items-center gap-2" method="get" action={basePath}>
+                <input type="hidden" name="view" value={view} />
+                {lockedStatus ? <input type="hidden" name="status" value={lockedStatus} /> : null}
+                {lockedInterested ? <input type="hidden" name="interested" value="true" /> : null}
+                <div className="relative min-w-[180px] flex-1 max-w-xs">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+                  <Input
+                    name="q"
+                    defaultValue={q}
+                    placeholder="Search"
+                    className="h-10 pl-9"
+                  />
+                </div>
+                <Button type="submit" variant="secondary" size="sm">
+                  <Filter className="h-3.5 w-3.5" />
+                  Filter
+                </Button>
+                <Button type="submit" variant="secondary" size="sm">
+                  <Search className="h-3.5 w-3.5" />
+                  Find
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.refresh()}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Refresh
+                </Button>
+              </form>
+              {canTransfer ? (
+                <div className="flex items-center gap-2">
+                  <Select
+                    className="h-10 w-48"
+                    value={transferToUserId}
+                    onChange={(e) => setTransferToUserId(e.target.value)}
+                  >
+                    <option value="">Lead Transfer To…</option>
+                    {lookups.members.map((m) => (
+                      <option key={m.user.id} value={m.user.id}>
+                        {m.user.name ?? m.user.email}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!transferToUserId || selected.length === 0}
+                    onClick={() => void runTransfer()}
+                  >
+                    Transfer
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>
               {view === "kanban" ? "Pipeline" : listTitle} ({total})
@@ -427,6 +498,8 @@ export function LeadsWorkspace({
               Filter
             </Button>
           </form>
+            </>
+          )}
         </CardHeader>
         <CardContent>
           {selected.length > 0 ? (
@@ -575,13 +648,19 @@ export function LeadsWorkspace({
             />
           ) : (
             <DataTable
-              columns={["", ...activeColumns.map((key) => COLUMN_LABELS[key] ?? key)]}
+              columns={[
+                "#",
+                "",
+                "",
+                ...activeColumns.map((key) => COLUMN_LABELS[key] ?? key),
+              ]}
               empty="No leads match these filters. Create one or import a CSV."
-              className="[&_th]:px-2 [&_th]:py-2 [&_th]:text-sm"
+              className="[&_th]:px-2 [&_th]:py-2 [&_th]:text-sm [&_td]:text-sm"
             >
               {rows.length
-                ? rows.map((lead) => (
-                    <tr key={lead.id} className="border-b border-[var(--ic-border)] last:border-0">
+                ? rows.map((lead, index) => (
+                    <tr key={lead.id} className="border-b border-[var(--ic-border)] last:border-0 odd:bg-white even:bg-[var(--ic-surface-muted)]/30">
+                      <td className={CELL_CLASS}>{(page - 1) * pageSize + index + 1}</td>
                       <td className={CELL_CLASS}>
                         <Checkbox
                           checked={selected.includes(lead.id)}
@@ -589,9 +668,24 @@ export function LeadsWorkspace({
                           aria-label={`Select ${lead.fullName}`}
                         />
                       </td>
+                      <td className={CELL_CLASS}>
+                        {lead.phone ? (
+                          <Link
+                            href={`/leads/${lead.id}?dial=1`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
+                            aria-label={`Call ${lead.fullName}`}
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                          </Link>
+                        ) : (
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ic-border)] text-subtle">
+                            <Phone className="h-3.5 w-3.5 opacity-40" />
+                          </span>
+                        )}
+                      </td>
                       {activeColumns.map((key) => (
                         <td key={key} className={CELL_CLASS}>
-                          {renderLeadColumn(key, lead, timezone)}
+                          {renderLeadColumn(key, lead, timezone, canChat, showReengagedHighlight)}
                         </td>
                       ))}
                     </tr>

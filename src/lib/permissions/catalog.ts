@@ -54,6 +54,11 @@ export const PERMISSIONS: PermissionSeed[] = [
   { code: "lead.manage_flags", name: "Manage lead flags", module: "lead" },
   { code: "lead.log_calls", name: "Log calls", module: "lead" },
 
+  // Chat
+  { code: "chat.view", name: "View chat", module: "chat" },
+  { code: "chat.send", name: "Send chat messages", module: "chat" },
+  { code: "chat.manage", name: "Manage chat settings", module: "chat" },
+
   // Integrations (seeded for later phases)
   { code: "integration.view", name: "View integrations", module: "integration" },
   {
@@ -128,6 +133,9 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "lead.reengage",
       "lead.manage_flags",
       "lead.log_calls",
+      "chat.view",
+      "chat.send",
+      "chat.manage",
       "integration.view",
       "integration.connect",
       "integration.disconnect",
@@ -153,6 +161,8 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "lead.transfer",
       "lead.reengage",
       "lead.log_calls",
+      "chat.view",
+      "chat.send",
       "role.view",
     ],
   },
@@ -169,6 +179,8 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "lead.change_stage",
       "lead.convert",
       "lead.log_calls",
+      "chat.view",
+      "chat.send",
     ],
   },
   {
@@ -228,7 +240,7 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
     code: "support_executive",
     name: "Support Executive",
     description: "Support access to lead information",
-    permissions: ["org.view", "dashboard.view", "lead.view"],
+    permissions: ["org.view", "dashboard.view", "lead.view", "chat.view"],
   },
   {
     code: "viewer",
@@ -240,6 +252,7 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "role.view",
       "dashboard.view",
       "lead.view",
+      "chat.view",
       "integration.view",
     ],
   },

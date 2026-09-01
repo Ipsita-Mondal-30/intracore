@@ -11,6 +11,7 @@ const publicPaths = [
   "/auth/callback",
   "/auth/session-error",
   "/setup",
+  "/chat",
 ];
 
 export async function middleware(request: NextRequest) {

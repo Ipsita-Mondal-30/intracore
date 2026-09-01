@@ -39,6 +39,9 @@ model User {
   reengagementsAssigned LeadReengagement[] @relation("ReengagementAssignee")
   communications      LeadCommunication[]
   assignedInquiries   Inquiry[]            @relation("InquiryAssignee")
+  conversationParticipants ConversationParticipant[]
+  sentMessages        Message[]                 @relation("MessageSender")
+  notificationPreferences UserNotificationPreference[]
 
   @@map("users")
 }
@@ -97,6 +100,8 @@ model Organization {
   integrations  Integration[]
   communications LeadCommunication[]
   inquiries      Inquiry[]
+  conversations Conversation[]
+  notificationPreferences UserNotificationPreference[]
 
   @@map("organizations")
 }
@@ -482,6 +487,7 @@ model Lead {
   scoreSnapshots LeadScoreSnapshot[]
   communications LeadCommunication[]
   linkedInquiries Inquiry[]
+  conversations Conversation[]
 
   @@index([organizationId, email])
   @@index([organizationId, phone])
@@ -495,6 +501,8 @@ model Lead {
   @@index([organizationId, reEngagedAt])
   @@index([organizationId, callbackAt])
   @@index([organizationId, leadScore])
+  @@index([organizationId, archivedAt])
+  @@index([organizationId, archivedAt, status])
   @@map("leads")
 }
 
@@ -709,10 +717,10 @@ model LeadCallRecord {
   nextFollowUpAt       DateTime?
   callbackAt           DateTime?
   recordingPath        String?
-  recordingFileName      String?
-  recordingMimeType      String?
-  recordingSizeBytes     Int?
-  recordingDurationSec   Int?
+  recordingFileName    String?
+  recordingMimeType    String?
+  recordingSizeBytes   Int?
+  recordingDurationSec Int?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -883,4 +891,113 @@ model LeadCommunication {
 
   @@index([organizationId, leadId, occurredAt])
   @@map("lead_communications")
+}
+
+// ─── Chat ────────────────────────────────────────────────────────────────────
+
+enum MessageSender {
+  USER
+  LEAD
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Conversation {
+  id             String    @id @default(cuid())
+  organizationId String
+  leadId         String
+  guestTokenHash String    @unique
+  lastMessageAt  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead           Lead                      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  participants   ConversationParticipant[]
+  messages       Message[]
+
+  @@unique([organizationId, leadId])
+  @@index([organizationId, lastMessageAt])
+  @@index([leadId])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String    @db.Uuid
+  lastReadAt     DateTime?
+  joinedAt       DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  senderType     MessageSender
+  senderUserId   String?       @db.Uuid
+  content        String?
+  messageType    MessageType   @default(TEXT)
+  status         MessageStatus @default(SENT)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUser   User?               @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  attachments  MessageAttachment[]
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id        String @id @default(cuid())
+  messageId String
+  fileName  String
+  fileUrl   String
+  mimeType  String
+  size      Int
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("message_attachments")
+}
+
+model UserNotificationPreference {
+  id                    String  @id @default(cuid())
+  organizationId        String
+  userId                String  @db.Uuid
+  chatMessages          Boolean @default(true)
+  leadAssignments       Boolean @default(true)
+  followUpReminders     Boolean @default(true)
+  taskNotifications     Boolean @default(true)
+  systemNotifications   Boolean @default(true)
+  browserNotifications  Boolean @default(false)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("user_notification_preferences")
 }

@@ -1,23 +1,26 @@
 "use client";
 
-import { Bell, LayoutGrid, MessageSquare, Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { LayoutGrid, MessageSquare, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { NotificationCenter, type NotificationItem } from "@/features/notifications/notification-center";
 
 export function AppHeader({
   placeholder = "Search…",
-  unreadNotifications = 0,
+  organizationId,
+  userId,
+  notifications,
+  unreadNotificationCount,
+  browserNotificationsEnabled,
 }: {
   placeholder?: string;
-  unreadNotifications?: number;
+  organizationId?: string;
+  userId?: string;
+  notifications?: NotificationItem[];
+  unreadNotificationCount?: number;
+  browserNotificationsEnabled?: boolean;
 }) {
-  const badge =
-    unreadNotifications > 99
-      ? "99+"
-      : unreadNotifications > 0
-        ? String(unreadNotifications)
-        : null;
-
   return (
     <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="relative w-full max-w-xl flex-1">
@@ -38,32 +41,34 @@ export function AppHeader({
         >
           <Plus className="h-4 w-4" />
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon-sm"
-          className="relative"
-          aria-label={
-            badge
-              ? `Notifications, ${unreadNotifications} unread`
-              : "Notifications"
-          }
-        >
-          <Bell className="h-4 w-4" />
-          {badge ? (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--ic-danger)] px-1 text-[10px] font-semibold text-white">
-              {badge}
-            </span>
-          ) : null}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon-sm"
-          aria-label="Messages"
-        >
-          <MessageSquare className="h-4 w-4" />
-        </Button>
+        {organizationId && userId ? (
+          <NotificationCenter
+            organizationId={organizationId}
+            userId={userId}
+            initialNotifications={notifications}
+            initialUnreadCount={unreadNotificationCount}
+            browserNotificationsEnabled={browserNotificationsEnabled}
+          />
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Notifications"
+          >
+            <span className="sr-only">Notifications</span>
+          </Button>
+        )}
+        <Link href="/messages">
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Messages"
+          >
+            <MessageSquare className="h-4 w-4" />
+          </Button>
+        </Link>
         <Button
           type="button"
           variant="secondary"

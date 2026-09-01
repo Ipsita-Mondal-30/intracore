@@ -41,13 +41,16 @@ export async function createCallRecordAction(
     const callbackAt = callbackAtRaw ? new Date(callbackAtRaw) : null;
     const nextFollowUpRaw = String(formData.get("nextFollowUpAt") ?? "").trim();
     const nextFollowUpAt = nextFollowUpRaw ? new Date(nextFollowUpRaw) : null;
+    const recording = formData.get("recording");
 
     if (outcome && !CALL_OUTCOMES.includes(outcome as (typeof CALL_OUTCOMES)[number])) {
       return { ok: false, error: "Invalid call outcome" };
     }
 
+    let callRecordId = "";
+
     await prisma.$transaction(async (tx) => {
-      await tx.leadCallRecord.create({
+      const callRecord = await tx.leadCallRecord.create({
         data: {
           organizationId: tenant.organizationId,
           leadId,
@@ -62,6 +65,7 @@ export async function createCallRecordAction(
           nextFollowUpAt,
         },
       });
+      callRecordId = callRecord.id;
 
       await tx.lead.update({
         where: { id: leadId },
@@ -85,6 +89,34 @@ export async function createCallRecordAction(
         });
       }
     });
+
+    if (recording instanceof File && recording.size > 0 && callRecordId) {
+      try {
+        const { mimeType, ext } = validateCallRecordingFile({
+          type: recording.type,
+          size: recording.size,
+        });
+        const recordingPath = buildCallRecordingPath(
+          tenant.organizationId,
+          leadId,
+          callRecordId,
+          ext,
+        );
+        const buffer = Buffer.from(await recording.arrayBuffer());
+        await uploadCallRecording(recordingPath, buffer, mimeType);
+        await prisma.leadCallRecord.update({
+          where: { id: callRecordId },
+          data: {
+            recordingPath,
+            recordingFileName: recording.name,
+            recordingMimeType: mimeType,
+            recordingSizeBytes: recording.size,
+          },
+        });
+      } catch (uploadError) {
+        console.error("Call recording upload failed", uploadError);
+      }
+    }
 
     await syncLeadNextFollowUpAt(leadId);
 

@@ -20,6 +20,8 @@ import {
   Heart,
   CheckCircle2,
   BarChart3,
+  ListTodo,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/actions";
@@ -127,6 +129,7 @@ const orgNavGroups: NavGroup[] = [
       },
       { href: "/settings/users", label: "Users", icon: Users },
       { href: "/settings/roles", label: "Roles", icon: Shield },
+      { href: "/settings/notifications", label: "Notifications", icon: Radio },
     ],
   },
   {
@@ -209,6 +212,34 @@ export function AppSidebar({
                 Overview
               </Link>
             </li>
+            <li>
+              <Link
+                href="/leads/tasks"
+                className={cn(
+                  "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
+                  pathname.startsWith("/leads/tasks")
+                    ? "bg-nav-active font-medium text-white shadow-sm"
+                    : "text-muted hover:bg-white/70 hover:text-foreground",
+                )}
+              >
+                <ListTodo className="h-4 w-4 shrink-0 opacity-80" />
+                Tasks
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/leads/import"
+                className={cn(
+                  "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
+                  pathname.startsWith("/leads/import")
+                    ? "bg-nav-active font-medium text-white shadow-sm"
+                    : "text-muted hover:bg-white/70 hover:text-foreground",
+                )}
+              >
+                <Upload className="h-4 w-4 shrink-0 opacity-80" />
+                Import
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -244,38 +275,40 @@ export function AppSidebar({
           </div>
         ))}
 
-        {orgNavGroups.map((group) => (
-          <div key={group.title}>
-            <p className="mb-2 px-3 text-2xs font-semibold tracking-wider text-subtle">
-              {group.title}
-            </p>
-            <ul className="space-y-1">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const active = item.exact
-                  ? pathname === item.href
-                  : pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
-                        active
-                          ? "bg-nav-active font-medium text-white shadow-sm"
-                          : "text-muted hover:bg-white/70 hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0 opacity-80" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+        {pathname.startsWith("/settings")
+          ? orgNavGroups.map((group) => (
+              <div key={group.title}>
+                <p className="mb-2 px-3 text-2xs font-semibold tracking-wider text-subtle">
+                  {group.title}
+                </p>
+                <ul className="space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.exact
+                      ? pathname === item.href
+                      : pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
+                            active
+                              ? "bg-nav-active font-medium text-white shadow-sm"
+                              : "text-muted hover:bg-white/70 hover:text-foreground",
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0 opacity-80" />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
+          : null}
       </nav>
     </aside>
   );

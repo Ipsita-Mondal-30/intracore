@@ -13,7 +13,11 @@ export function AppShell({
   roleName,
   organizationName,
   leadNavGroups = [],
-  unreadNotifications = 0,
+  organizationId,
+  userId,
+  notifications,
+  unreadNotificationCount,
+  browserNotificationsEnabled,
   children,
 }: {
   userName: string;
@@ -24,7 +28,19 @@ export function AppShell({
     category: string;
     items: { href: string; label: string; slug: string }[];
   }[];
-  unreadNotifications?: number;
+  organizationId?: string;
+  userId?: string;
+  notifications?: {
+    id: string;
+    type: string;
+    title: string;
+    body: string | null;
+    data: unknown;
+    readAt: string | null;
+    createdAt: string;
+  }[];
+  unreadNotificationCount?: number;
+  browserNotificationsEnabled?: boolean;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -88,7 +104,11 @@ export function AppShell({
         </div>
         <AppHeader
           placeholder="Search leads, people, settings…"
-          unreadNotifications={unreadNotifications}
+          organizationId={organizationId}
+          userId={userId}
+          notifications={notifications}
+          unreadNotificationCount={unreadNotificationCount}
+          browserNotificationsEnabled={browserNotificationsEnabled}
         />
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </main>
