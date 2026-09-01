@@ -49,7 +49,6 @@ In the Supabase dashboard, set redirect URLs:
 | `ENCRYPTION_KEY` | No | Future integration credential encryption |
 | `RESEND_API_KEY` | **No** | Resend API key for transactional email (optional) |
 | `RESEND_FROM_EMAIL` | **No** | Verified From address, e.g. `IntraCore <onboarding@resend.dev>` |
-| `CRON_SECRET` | **No** | Bearer token for `/api/cron/*` (follow-up reminders) |
 
 Never commit `.env` (use `.env.example` as the template).
 
@@ -63,7 +62,8 @@ When `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set, the app sends:
 
 - Member invitation emails
 - Lead assignment notifications
-- Follow-up created + due reminders (hourly cron)
+- Follow-up created notifications
+- Manual due reminders (2h, 24h, 48h, 72h) via Leads → E-mail
 - Meeting logged alerts to the lead assignee
 
 Without these vars, actions still succeed; invites show a copyable URL fallback.
@@ -84,7 +84,6 @@ Without these vars, actions still succeed; invites show a copyable URL fallback.
 | `ENCRYPTION_KEY` | Random 32+ char string |
 | `RESEND_API_KEY` | Resend API key (optional) |
 | `RESEND_FROM_EMAIL` | Verified sender address (optional) |
-| `CRON_SECRET` | Random secret for cron routes (optional) |
 
 3. In Supabase → **Authentication → URL Configuration**, add:
    - Site URL: your Vercel domain

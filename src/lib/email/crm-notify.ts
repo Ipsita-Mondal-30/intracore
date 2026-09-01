@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db/prisma";
 import { notifyUser } from "@/lib/email/notify";
 import {
   followUpCreatedEmail,
-  followUpReminderEmail,
   leadAssignedEmail,
   meetingLoggedEmail,
 } from "@/lib/email/templates";
@@ -73,37 +72,6 @@ export async function notifyFollowUpCreated(input: {
       userId: input.assignedUserId,
       type: "follow_up.created",
       title: `Follow-up: ${input.title}`,
-      body: `Due ${input.dueAt.toLocaleString()} for ${input.leadName}`,
-      data: { leadId: input.leadId, followUpId: input.followUpId },
-      email,
-    }),
-  );
-}
-
-export async function notifyFollowUpReminder(input: {
-  organizationId: string;
-  organizationName: string;
-  leadId: string;
-  leadName: string;
-  followUpId: string;
-  title: string;
-  dueAt: Date;
-  assignedUserId: string;
-}) {
-  const email = followUpReminderEmail({
-    title: input.title,
-    leadName: input.leadName,
-    leadId: input.leadId,
-    dueAt: input.dueAt,
-    organizationName: input.organizationName,
-  });
-
-  await safeNotify("follow_up.reminder", () =>
-    notifyUser({
-      organizationId: input.organizationId,
-      userId: input.assignedUserId,
-      type: "follow_up.reminder",
-      title: `Reminder: ${input.title}`,
       body: `Due ${input.dueAt.toLocaleString()} for ${input.leadName}`,
       data: { leadId: input.leadId, followUpId: input.followUpId },
       email,

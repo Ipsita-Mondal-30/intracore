@@ -85,25 +85,6 @@ export function followUpCreatedEmail(input: {
   return { subject, html, text };
 }
 
-export function followUpReminderEmail(input: {
-  title: string;
-  leadName: string;
-  leadId: string;
-  dueAt: Date;
-  organizationName: string;
-}) {
-  const subject = `Reminder: follow-up due — ${input.title}`;
-  const leadUrl = `${getSiteUrl()}/leads/${input.leadId}`;
-  const due = input.dueAt.toLocaleString();
-  const html = layout(
-    "Follow-up reminder",
-    `<p>Your follow-up <strong>${escapeHtml(input.title)}</strong> for <strong>${escapeHtml(input.leadName)}</strong> is due at <strong>${escapeHtml(due)}</strong>.</p>
-     ${cta(leadUrl, "Open lead")}`,
-  );
-  const text = `Reminder: follow-up "${input.title}" for ${input.leadName} is due at ${due}.\n\nOpen: ${leadUrl}`;
-  return { subject, html, text };
-}
-
 export function meetingLoggedEmail(input: {
   meetingTitle?: string | null;
   leadName: string;

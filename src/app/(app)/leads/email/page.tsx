@@ -72,8 +72,8 @@ export default async function LeadEmailPage() {
           <CardContent className="pt-5 text-sm text-muted">
             Set <code className="text-xs">RESEND_API_KEY</code> and{" "}
             <code className="text-xs">RESEND_FROM_EMAIL</code> in your environment to enable
-            sending. Due reminders (2h, 24h, 48h, 72h) are emailed to assignees automatically
-            when the cron job runs, or use &quot;Send due reminders now&quot;.
+            sending. Due reminders (2h, 24h, 48h, 72h) can be emailed to assignees using
+            &quot;Send due reminders now&quot;.
           </CardContent>
         </Card>
       ) : null}
@@ -92,12 +92,6 @@ export default async function LeadEmailPage() {
         </CardContent>
       </Card>
 
-      {configured ? (
-        <p className="mt-4 text-2xs text-subtle">
-          Cron: <code>GET /api/cron/follow-up-reminders</code> with{" "}
-          <code>Authorization: Bearer CRON_SECRET</code> — schedule hourly on Vercel or your host.
-        </p>
-      ) : null}
     </div>
   );
 }
