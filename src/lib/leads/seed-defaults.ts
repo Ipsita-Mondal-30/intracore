@@ -133,7 +133,7 @@ export const SYSTEM_LEAD_VIEWS: SystemViewSeed[] = [
   { slug: "create-lead", name: "Create New Lead", category: "HOME", sortOrder: 10, href: "/leads/new" },
   { slug: "messages", name: "Messages", category: "HOME", sortOrder: 11, href: "/leads/messages" },
   { slug: "email", name: "E-mail", category: "HOME", sortOrder: 12, href: "/leads/email" },
-  { slug: "re-engaged", name: "Re-engaged", category: "HOME", sortOrder: 2, filters: { reengaged: true }, columns: ["leadId", "name", "source", "leadDate", "reengagedDate", "dueCall", "status", "assigned"], sort: "reengagedAt", sortDir: "desc" },
+  { slug: "re-engaged", name: "Re-engaged", category: "HOME", sortOrder: 2, filters: { reengaged: true }, columns: ["leadId", "name", "source", "leadDate", "reengagedDate", "dueCall", "status", "assigned"], sort: "reEngagedAt", sortDir: "desc" },
   { slug: "due-24h", name: "24 Hrs Due", category: "HOME", sortOrder: 3, filters: { dueWithinHours: 24 }, columns: ["leadId", "name", "source", "leadDate", "dueCall", "status", "assigned"] },
   { slug: "due-48h", name: "48 Hrs Due", category: "HOME", sortOrder: 4, filters: { dueWithinHours: 48 }, columns: ["leadId", "name", "source", "leadDate", "dueCall", "status", "assigned"] },
   { slug: "due-72h", name: "72 Hrs Due", category: "HOME", sortOrder: 5, filters: { dueWithinHours: 72 }, columns: ["leadId", "name", "source", "leadDate", "dueCall", "status", "assigned"] },
