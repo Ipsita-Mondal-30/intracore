@@ -21,6 +21,12 @@ export default function AppError({
         <p className="mt-2 text-sm text-muted">
           Try again. If this keeps happening, sign out and sign back in.
         </p>
+        {error.digest ? (
+          <p className="mt-2 font-mono text-2xs text-subtle">Ref: {error.digest}</p>
+        ) : null}
+        {process.env.NODE_ENV === "development" && error.message ? (
+          <p className="mt-2 break-words text-left text-2xs text-danger">{error.message}</p>
+        ) : null}
         <div className="mt-6 flex flex-col items-center gap-3">
           <button
             type="button"

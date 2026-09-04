@@ -85,10 +85,12 @@ export async function LeadsListPage({
   const resolvedBreadcrumbs = breadcrumbs ?? ["Leads", leadView?.name ?? "All"];
 
   const queryTimer = perfTime(`leads.list+lookups:${resolvedBasePath}`);
-  const [list, kanban, lookups, stats, org] = await Promise.all([
+  // Lookups first (cached), then list/stats — avoids exhausting Vercel's
+  // Prisma pool (connection_limit=1) with too many concurrent queries.
+  const lookups = await getLeadLookups(tenant.organizationId);
+  const [list, kanban, stats, org] = await Promise.all([
     view === "kanban" ? null : listLeads(tenant, params),
     view === "kanban" ? listLeadsForKanban(tenant, params) : null,
-    getLeadLookups(tenant.organizationId),
     viewSlug || preset
       ? getLeadListStats(tenant, params)
       : getLeadDashboardStats(tenant.organizationId, tenant.userId),
