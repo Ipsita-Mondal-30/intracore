@@ -2,8 +2,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/db/prisma";
 import {
   seedOrganizationLeadDefaults,
-  ensureOrganizationLeadViews,
-  ensureEducationCustomFields,
+  ensureMissingSystemLeadViews,
 } from "@/lib/leads/seed-defaults";
 import { orgCache } from "@/lib/cache/request-cache";
 import type { Prisma } from "@prisma/client";
@@ -433,8 +432,10 @@ async function loadLeadLookups(organizationId: string) {
     ]);
   }
 
-  await ensureOrganizationLeadViews(prisma, organizationId);
-  await ensureEducationCustomFields(prisma, organizationId);
+  // Do not run full ensure* upserts on this hot path — Vercel uses
+  // connection_limit=1 and parallel list/stats queries will exhaust the pool.
+  // Defaults are seeded at org creation; missing views are filled lazily below.
+  await ensureMissingSystemLeadViews(prisma, organizationId);
 
   const stages = pipelines.flatMap((p) => p.stages);
   return { sources, pipelines, stages, members, teams, tags, products, flags, customFields };

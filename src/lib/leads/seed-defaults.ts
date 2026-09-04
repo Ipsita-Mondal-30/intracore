@@ -261,6 +261,43 @@ export async function ensureEducationCustomFields(
   await seedEducationCustomFields(db, organizationId);
 }
 
+/** Lightweight: only insert missing system views (no per-view upserts). */
+export async function ensureMissingSystemLeadViews(
+  db: DbClient,
+  organizationId: string,
+) {
+  const existing = await db.leadView.findMany({
+    where: { organizationId },
+    select: { slug: true },
+  });
+  if (existing.length === 0) {
+    await seedOrganizationLeadDefaults(db, organizationId);
+    return;
+  }
+
+  const have = new Set(existing.map((v) => v.slug));
+  const missing = SYSTEM_LEAD_VIEWS.filter((view) => !have.has(view.slug));
+  if (missing.length === 0) return;
+
+  await db.leadView.createMany({
+    data: missing.map((view) => ({
+      organizationId,
+      slug: view.slug,
+      name: view.name,
+      category: view.category,
+      sortOrder: view.sortOrder,
+      filters: (view.filters ?? {}) as Prisma.InputJsonValue,
+      columns: (view.columns ?? DEFAULT_LIST_COLUMNS) as Prisma.InputJsonValue,
+      sort: view.sort ?? "createdAt",
+      sortDir: view.sortDir ?? "desc",
+      href: view.href ?? null,
+      isSystem: true,
+      isActive: true,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 export async function ensureOrganizationLeadViews(
   db: DbClient,
   organizationId: string,
