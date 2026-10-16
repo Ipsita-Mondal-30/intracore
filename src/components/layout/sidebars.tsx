@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -37,74 +37,155 @@ import {
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/actions";
 
-const modules = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, color: "bg-[var(--ic-primary)]" },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, color: "bg-fuchsia-500" },
-  { href: "/leads", label: "Leads", icon: Target, color: "bg-[var(--ic-module-orange)]" },
-  { href: "/crm/customers", label: "CRM", icon: Users, color: "bg-emerald-500", prefix: "/crm" },
-  { href: "/sales/quotations", label: "Sales", icon: ShoppingCart, color: "bg-sky-500", prefix: "/sales" },
-  { href: "/inventory/products", label: "Inventory", icon: Boxes, color: "bg-amber-500", prefix: "/inventory" },
-  { href: "/purchasing/orders", label: "Purchasing", icon: Truck, color: "bg-rose-500", prefix: "/purchasing" },
-  { href: "/finance/invoices", label: "Finance", icon: Wallet, color: "bg-violet-500", prefix: "/finance" },
-  { href: "/hr/employees", label: "HR", icon: Contact, color: "bg-pink-500", prefix: "/hr" },
-  { href: "/projects", label: "Projects", icon: KanbanSquare, color: "bg-lime-600" },
-  { href: "/service/tickets", label: "Service", icon: LifeBuoy, color: "bg-cyan-500", prefix: "/service" },
-  { href: "/manufacturing/work-orders", label: "Manufacturing", icon: Factory, color: "bg-orange-600", prefix: "/manufacturing" },
-  { href: "/communication/messages", label: "Communication", icon: MessageSquare, color: "bg-teal-500", prefix: "/communication" },
-  { href: "/automation/approvals", label: "Automation", icon: Workflow, color: "bg-indigo-500", prefix: "/automation" },
-  { href: "/settings/organization", label: "Settings", icon: Building2, color: "bg-[var(--ic-module-purple)]", prefix: "/settings" },
-] as const;
+type RailModule = {
+  href: string;
+  /** Short name shown under the icon */
+  label: string;
+  /** Full name and contents, shown in the tooltip */
+  title: string;
+  hint: string;
+  icon: ComponentType<{ className?: string }>;
+  /** Path prefix that marks the module active (defaults to href) */
+  prefix?: string;
+};
+
+/** Grouped so related modules sit together; groups are separated by a divider. */
+const moduleGroups: RailModule[][] = [
+  [
+    { href: "/dashboard", label: "Home", title: "Overview", hint: "Your dashboard", icon: LayoutDashboard },
+    { href: "/analytics", label: "Analytics", title: "Analytics", hint: "Business overview, MIS, report builder", icon: BarChart3 },
+  ],
+  [
+    { href: "/leads", label: "Leads", title: "Leads", hint: "Lead pipeline, follow-ups, calls", icon: Target },
+    { href: "/crm/customers", label: "CRM", title: "CRM", hint: "Customers, contacts, opportunities", icon: Users, prefix: "/crm" },
+    { href: "/sales/quotations", label: "Sales", title: "Sales", hint: "Quotations and sales orders", icon: ShoppingCart, prefix: "/sales" },
+  ],
+  [
+    { href: "/inventory/products", label: "Stock", title: "Inventory", hint: "Products, warehouses, stock entries", icon: Boxes, prefix: "/inventory" },
+    { href: "/purchasing/orders", label: "Purchase", title: "Purchasing", hint: "Vendors, purchase orders, bills", icon: Truck, prefix: "/purchasing" },
+    { href: "/manufacturing/work-orders", label: "Factory", title: "Manufacturing", hint: "BOMs, work orders, quality", icon: Factory, prefix: "/manufacturing" },
+    { href: "/finance/invoices", label: "Finance", title: "Finance", hint: "Invoices, payments, expenses, GST", icon: Wallet, prefix: "/finance" },
+  ],
+  [
+    { href: "/hr/employees", label: "HR", title: "HR", hint: "Employees, attendance, leave, payroll", icon: Contact, prefix: "/hr" },
+    { href: "/projects", label: "Projects", title: "Projects", hint: "Projects, tasks, timesheets", icon: KanbanSquare },
+    { href: "/service/tickets", label: "Service", title: "Service", hint: "Tickets, AMC, assets, field work", icon: LifeBuoy, prefix: "/service" },
+  ],
+  [
+    { href: "/communication/messages", label: "Outreach", title: "Communication", hint: "Messages, templates, campaigns, loyalty", icon: MessageSquare, prefix: "/communication" },
+    { href: "/automation/approvals", label: "Automate", title: "Automation", hint: "Approvals, workflows, reminders", icon: Workflow, prefix: "/automation" },
+  ],
+];
+
+const settingsModule: RailModule = {
+  href: "/settings/organization",
+  label: "Settings",
+  title: "Settings",
+  hint: "Organization, users, roles, integrations",
+  icon: Settings,
+  prefix: "/settings",
+};
+
+type Tip = { title: string; hint: string; top: number; left: number };
+
+function RailLink({ mod, active, onTip }: { mod: RailModule; active: boolean; onTip: (tip: Tip | null) => void }) {
+  const Icon = mod.icon;
+  const show = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    onTip({ title: mod.title, hint: mod.hint, top: r.top + r.height / 2, left: r.right + 10 });
+  };
+  return (
+    <Link
+      href={mod.href}
+      aria-label={`${mod.title}: ${mod.hint}`}
+      aria-current={active ? "page" : undefined}
+      onMouseEnter={(e) => show(e.currentTarget)}
+      onMouseLeave={() => onTip(null)}
+      onFocus={(e) => show(e.currentTarget)}
+      onBlur={() => onTip(null)}
+      className={cn(
+        "flex w-[60px] shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-[5px] outline-none transition",
+        "focus-visible:ring-2 focus-visible:ring-primary/60",
+        active ? "bg-primary-soft text-primary ring-1 ring-inset ring-[var(--ic-primary-outline)]" : "text-[var(--ic-foreground)]/70 hover:bg-[var(--ic-surface-muted)] hover:text-foreground",
+      )}
+    >
+      <Icon className="h-[19px] w-[19px]" />
+      <span className={cn("w-full truncate text-center text-[10.5px] leading-none", active ? "font-semibold" : "font-medium")}>{mod.label}</span>
+    </Link>
+  );
+}
 
 export function ModuleRail() {
   const pathname = usePathname();
+  const [tip, setTip] = useState<Tip | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+  // On short screens the list scrolls: keep the current module in view.
+  useEffect(() => {
+    navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
+  }, [pathname]);
+  const isActive = (m: RailModule) => {
+    const base = m.prefix ?? m.href;
+    return pathname === base || pathname.startsWith(`${base}/`);
+  };
 
   return (
-    <aside className="sticky top-4 flex h-[calc(100vh-2rem)] w-[72px] self-start shrink-0 flex-col items-center gap-3 py-4">
+    <aside
+      className="sticky top-4 mr-2 flex h-[calc(100vh-2rem)] w-[76px] shrink-0 flex-col items-center self-start rounded-2xl border border-[var(--ic-border)] bg-white py-3 shadow-card"
+      aria-label="Modules"
+    >
       <Link
         href="/dashboard"
-        className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-white shadow-card"
-        aria-label="IntraCore"
+        className="mb-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-xs font-bold text-white"
+        aria-label="IntraCore home"
       >
         IC
       </Link>
 
-      <nav className="flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto overflow-x-visible py-1 [scrollbar-width:none]">
-        {modules.map((mod) => {
-          const base = "prefix" in mod ? mod.prefix : mod.href;
-          const active = pathname === base || pathname.startsWith(`${base}/`);
-          const Icon = mod.icon;
-          return (
-            <Link
-              key={mod.href}
-              href={mod.href}
-              title={mod.label}
-              aria-label={mod.label}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition",
-                mod.color,
-                active
-                  ? "ring-2 ring-offset-2 ring-offset-[var(--ic-canvas)] ring-black/15"
-                  : "opacity-85 hover:opacity-100",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-            </Link>
-          );
-        })}
+      <nav
+        ref={navRef}
+        className="flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto px-2 py-1 [scrollbar-width:none] [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-18px),transparent)]"
+        onScroll={() => setTip(null)}
+      >
+        {moduleGroups.map((group, i) => (
+          <div key={i} className="flex w-full flex-col items-center gap-0.5">
+            {i > 0 ? <div className="my-1 h-px w-8 bg-[var(--ic-border)]" aria-hidden /> : null}
+            {group.map((mod) => (
+              <RailLink key={mod.href} mod={mod} active={isActive(mod)} onTip={setTip} />
+            ))}
+          </div>
+        ))}
       </nav>
 
-      <div className="mt-auto flex flex-col items-center gap-2">
-        <form action={logoutAction}>
+      <div className="mt-2 flex w-full flex-col items-center gap-0.5 border-t border-[var(--ic-border)] px-2 pt-2">
+        <RailLink mod={settingsModule} active={isActive(settingsModule)} onTip={setTip} />
+        <form action={logoutAction} className="w-full">
           <button
             type="submit"
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-muted shadow-sm hover:text-danger"
-            title="Sign out"
+            aria-label="Sign out"
+            onMouseEnter={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setTip({ title: "Sign out", hint: "End your session on this device", top: r.top + r.height / 2, left: r.right + 10 });
+            }}
+            onMouseLeave={() => setTip(null)}
+            className="mx-auto flex w-[60px] flex-col items-center gap-1 rounded-xl px-1 py-[5px] text-[var(--ic-foreground)]/70 transition hover:bg-red-50 hover:text-danger focus-visible:ring-2 focus-visible:ring-danger/50 outline-none"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-[19px] w-[19px]" />
+            <span className="text-[10.5px] font-medium leading-none">Sign out</span>
           </button>
         </form>
       </div>
+
+      {tip ? (
+        <div
+          role="tooltip"
+          className="pointer-events-none fixed z-[60] max-w-[240px] -translate-y-1/2 rounded-lg bg-[var(--ic-nav-active)] px-3 py-2 text-white shadow-lg"
+          style={{ top: tip.top, left: tip.left }}
+        >
+          <span className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-[var(--ic-nav-active)]" aria-hidden />
+          <p className="text-xs font-semibold">{tip.title}</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-white/75">{tip.hint}</p>
+        </div>
+      ) : null}
     </aside>
   );
 }
