@@ -57,7 +57,7 @@ export default async function WorkflowPage({ params, searchParams }: Props) {
             <Card>
               <CardHeader><CardTitle>Run {formatDateTime(run.startedAt)} · <StatusBadge status={run.status} /></CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {run.error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">{run.error}</p> : null}
+                {run.error ? <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">{run.error}</p> : null}
                 <ol className="space-y-2">
                   {run.events.map((e) => (
                     <li key={e.id} className="rounded-xl border border-[var(--ic-border)] px-3 py-2">

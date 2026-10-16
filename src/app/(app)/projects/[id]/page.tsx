@@ -91,7 +91,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <Card>
             <CardHeader><CardTitle>Progress and budget</CardTitle></CardHeader>
             <CardContent>
-              <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={report.progress.percent} aria-valuemin={0} aria-valuemax={100}>
+              <div className="mb-4 h-2 overflow-hidden rounded-full bg-skeleton" role="progressbar" aria-valuenow={report.progress.percent} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full bg-primary" style={{ width: `${report.progress.percent}%` }} />
               </div>
               <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

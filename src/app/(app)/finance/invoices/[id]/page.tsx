@@ -98,7 +98,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {s === "CANCELLED" ? (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">
+            <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">
               Cancelled {formatDate(inv.cancelledAt)}{inv.cancelReason ? `: “${inv.cancelReason}”` : ""}
             </p>
           ) : null}
@@ -200,7 +200,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 )}
                 <details>
                   <summary className="cursor-pointer text-primary">Payload preview</summary>
-                  <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-slate-50 p-3 text-2xs">{JSON.stringify(einvoice.payload, null, 2)}</pre>
+                  <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-surface-muted p-3 text-2xs">{JSON.stringify(einvoice.payload, null, 2)}</pre>
                 </details>
                 {!einvoice.irn && can(ctx, "invoice.post") ? <ActionButton path={a("einvoice")} label="Register e-invoice" /> : null}
               </CardContent>

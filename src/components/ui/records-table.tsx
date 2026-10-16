@@ -59,7 +59,7 @@ export function RecordsTableRow({
   return (
     <tr
       className={cn(
-        "bg-white transition hover:bg-[var(--ic-table-row-hover)]",
+        "bg-surface transition hover:bg-[var(--ic-table-row-hover)]",
         onClick ? "cursor-pointer" : null,
         className,
       )}

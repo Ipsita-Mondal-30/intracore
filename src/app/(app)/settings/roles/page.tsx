@@ -44,7 +44,7 @@ export default async function RolesSettingsPage() {
                       const n = r.modules[m.module];
                       const full = n === m.permissions.length;
                       return (
-                        <td key={m.module} className={`px-1.5 py-1 text-center ${full ? "bg-emerald-50 text-success" : n ? "bg-amber-50 text-warning" : "text-subtle"}`}>
+                        <td key={m.module} className={`px-1.5 py-1 text-center ${full ? "bg-success-soft text-success" : n ? "bg-warning-soft text-warning" : "text-subtle"}`}>
                           {n ? (full ? "all" : `${n}/${m.permissions.length}`) : "·"}
                         </td>
                       );

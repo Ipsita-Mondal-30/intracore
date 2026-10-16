@@ -75,7 +75,7 @@ export function MessageList({
                       ? "rounded-br-md bg-primary text-white"
                       : isSystem
                         ? "bg-[var(--ic-surface-muted)] text-muted"
-                        : "rounded-bl-md border border-[var(--ic-border)] bg-white",
+                        : "rounded-bl-md border border-[var(--ic-border)] bg-surface",
                   )}
                 >
                   {message.content ? (

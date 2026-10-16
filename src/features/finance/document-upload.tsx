@@ -130,7 +130,7 @@ function DocumentDetails({ id }: { id: string }) {
             {v.checksum ? <span className="font-mono text-2xs text-subtle" title={`SHA-256 ${v.checksum}`}>sha256 {v.checksum.slice(0, 12)}…</span> : null}
             {v.signatureStatus !== "NONE" ? <StatusBadge status={v.signatureStatus} /> : null}
             {v.signatureRequests.some((r) => r.simulated && r.status === "SIGNED") ? (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-2xs font-medium text-amber-900">Simulated – not a legal signature</span>
+              <span className="rounded bg-warning-soft px-1.5 py-0.5 text-2xs font-medium text-warning">Simulated – not a legal signature</span>
             ) : null}
             {v.supersededAt ? <span className="text-2xs text-subtle">superseded</span> : null}
           </li>
@@ -168,7 +168,7 @@ function SignaturePanel({ document, open, onChange }: { document: VersionRow; op
       <div className="flex flex-wrap items-center gap-2">
         <span>Signature request:</span>
         <StatusBadge status={open.status} />
-        {open.notice ? <span className="text-2xs text-amber-900">{open.notice}</span> : null}
+        {open.notice ? <span className="text-2xs text-warning">{open.notice}</span> : null}
         {open.status === "DRAFT" ? <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(`/signature-requests/${open.id}/send`)}>Send for signature</Button> : null}
         {open.status !== "DRAFT" ? <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(`/signature-requests/${open.id}/refresh`)}>Check status</Button> : null}
         <Button size="sm" variant="secondary" disabled={pending} onClick={() => window.confirm("Void this signature request?") && run(`/signature-requests/${open.id}/void`)}>Void</Button>
