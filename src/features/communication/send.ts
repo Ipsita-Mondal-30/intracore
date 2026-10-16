@@ -49,6 +49,8 @@ export function renderTemplate(template: Pick<MessageTemplate, "body" | "subject
  * Record an outbound message and queue its delivery. Never throws for consent: a message
  * without consent is logged as BLOCKED with the reason, so audiences can be reported on.
  * Retry-safe: the same idempotencyKey returns the existing log.
+ * The variable values ride in the delivery job's payload: WhatsApp templates are sent as
+ * provider template parameters, not as our rendered text.
  */
 export async function queueMessage(
   db: Db,
@@ -99,7 +101,7 @@ export async function queueMessage(
     },
   });
   if (consent.allowed) {
-    await enqueue(db, { type: "communication.deliver", key: `communication.deliver:${log.id}`, organizationId: input.organizationId, payload: { logId: log.id } });
+    await enqueue(db, { type: "communication.deliver", key: `communication.deliver:${log.id}`, organizationId: input.organizationId, payload: { logId: log.id, variables: input.variables ?? {} } });
   }
   return log;
 }

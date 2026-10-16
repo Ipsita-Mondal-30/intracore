@@ -5,12 +5,10 @@ export async function getOrCreateNotificationPreferences(
   organizationId: string,
   userId: string,
 ) {
-  return prisma.userNotificationPreference.upsert({
-    where: {
-      organizationId_userId: { organizationId, userId },
-    },
-    create: { organizationId, userId },
-    update: {},
+  // createMany + skipDuplicates is race-free (Prisma's upsert can throw P2002 under concurrency).
+  await prisma.userNotificationPreference.createMany({ data: [{ organizationId, userId }], skipDuplicates: true });
+  return prisma.userNotificationPreference.findUniqueOrThrow({
+    where: { organizationId_userId: { organizationId, userId } },
   });
 }
 
@@ -73,18 +71,18 @@ export async function createSystemNotification(input: {
   const key = input.preferenceKey ?? "systemNotifications";
   if (!prefs[key]) return null;
 
-  return prisma.notification.create({
-    data: {
-      organizationId: input.organizationId,
-      userId: input.userId,
-      type: input.type,
-      title: input.title,
-      body: input.body,
-      data: (input.data ?? {}) as Prisma.InputJsonValue,
-      dedupeKey: input.dedupeKey,
-    },
-  }).catch((error: unknown) => {
-    if (input.dedupeKey && (error as { code?: string }).code === "P2002") return null;
-    throw error;
+  const data = {
+    organizationId: input.organizationId,
+    userId: input.userId,
+    type: input.type,
+    title: input.title,
+    body: input.body,
+    data: (input.data ?? {}) as Prisma.InputJsonValue,
+  };
+  if (!input.dedupeKey) return prisma.notification.create({ data });
+  const { count } = await prisma.notification.createMany({ data: [{ ...data, dedupeKey: input.dedupeKey }], skipDuplicates: true });
+  if (count === 0) return null;
+  return prisma.notification.findUnique({
+    where: { organizationId_userId_dedupeKey: { organizationId: input.organizationId, userId: input.userId, dedupeKey: input.dedupeKey } },
   });
 }

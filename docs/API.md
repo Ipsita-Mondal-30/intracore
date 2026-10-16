@@ -216,3 +216,16 @@ Each module documents its endpoints, rules and error codes in its own file:
 | BOMs, work orders, MRP, inspections, NCRs, supplier quality ([rules](MANUFACTURING.md)) | [api/manufacturing-quality.md](api/manufacturing-quality.md) |
 
 New jobs (`POST /api/v1/jobs/run`): `ticket-escalation`, `service-contract-reminders`, `service-contract-expiry`.
+
+## Automation, communication, marketing, documents and integrations (Phase 6)
+
+| Module | Endpoints |
+|---|---|
+| Workflows and approvals ([rules](WORKFLOWS.md)) | [api/workflows.md](api/workflows.md) |
+| Reminders, notification history and preferences, document versions, e-signature requests ([e-signature](ESIGNATURE.md)) | [api/notifications-documents.md](api/notifications-documents.md) |
+| Message templates, consent, communications, integrations, background jobs, webhook events ([communication](COMMUNICATION.md)) | [api/communication-integrations.md](api/communication-integrations.md) |
+| Segments, campaigns, customer feedback, loyalty ([marketing](MARKETING.md)) | [api/marketing.md](api/marketing.md) |
+
+Public webhooks (no session; signature-verified): `GET/POST /api/webhooks/whatsapp/:integrationId`, `POST /api/webhooks/esign/:provider`.
+
+New jobs (`POST /api/v1/jobs/run`): `background-queue` (run every minute), `reminders`, `workflow-dispatch`, `approval-escalation`, `campaign-scheduler`, `loyalty-expiry`. Every job run is recorded in `job_runs`.
