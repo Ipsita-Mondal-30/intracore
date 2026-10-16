@@ -63,6 +63,19 @@ export const orgSettingsSchema = z.object({
       customer: z.array(z.enum(["gstin", "email", "phone", "name"])).default(["gstin", "email", "phone"]),
     })
     .default({}),
+  loyalty: z
+    .object({
+      /** Off until the business defines its programme. */
+      enabled: z.boolean().default(false),
+      /** Points earned per 1 unit of invoice grand total (e.g. 0.01 = 1 point per 100). */
+      pointsPerCurrencyUnit: z.number().nonnegative().default(0),
+      /** Currency value of one point when redeemed. */
+      pointValue: z.number().nonnegative().default(0),
+      minRedeemPoints: z.number().int().nonnegative().default(0),
+      /** Earned points expire after this many days (null = never). */
+      expiryDays: z.number().int().positive().nullable().default(null),
+    })
+    .default({}),
 });
 
 export type OrgSettings = z.infer<typeof orgSettingsSchema>;
