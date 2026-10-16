@@ -202,3 +202,17 @@ Accounting model, posting rules and GST notes: [docs/FINANCE.md](FINANCE.md).
 | GET | `/companies/:id/statements/{customers|vendors}/:partyId` | `finance.report` | |
 
 Jobs added: `overdue-invoice-reminders`. New system role: **Accountant**.
+
+## HR, projects, service and manufacturing (Phase 5)
+
+Each module documents its endpoints, rules and error codes in its own file:
+
+| Module | Endpoints |
+|---|---|
+| HR core: departments, designations, shifts, holidays, employees, attendance, leave | [api/hr-core.md](api/hr-core.md) |
+| Recruitment, performance, payroll ([rules](PAYROLL.md)) | [api/hr-talent-payroll.md](api/hr-talent-payroll.md) |
+| Projects, tasks, time entries; service tickets, SLA, service reports | [api/projects-tickets.md](api/projects-tickets.md) |
+| Assets, warranties, AMC contracts, claims, visits, installations, dispatch/POD | [api/service-field.md](api/service-field.md) |
+| BOMs, work orders, MRP, inspections, NCRs, supplier quality ([rules](MANUFACTURING.md)) | [api/manufacturing-quality.md](api/manufacturing-quality.md) |
+
+New jobs (`POST /api/v1/jobs/run`): `ticket-escalation`, `service-contract-reminders`, `service-contract-expiry`.

@@ -215,6 +215,7 @@ async function postEntryInTx(tx: Db, ctx: AccessContext, id: string) {
   // Lock the source document first so its quantities cannot change underneath us.
   if (entry.purchaseOrderId) await tx.$queryRaw`SELECT 1 FROM "purchase_orders" WHERE "id" = ${entry.purchaseOrderId} FOR UPDATE`;
   if (entry.salesOrderId) await tx.$queryRaw`SELECT 1 FROM "sales_orders" WHERE "id" = ${entry.salesOrderId} FOR UPDATE`;
+  if (entry.workOrderId) await tx.$queryRaw`SELECT 1 FROM "work_orders" WHERE "id" = ${entry.workOrderId} FOR UPDATE`;
   const stocked = entry.lines.filter((l) => isStocked(l.product));
   await lockStock(tx, entry.companyId, stocked.map((l) => l.productId));
 
@@ -407,6 +408,7 @@ export async function cancelStockEntry(ctx: AccessContext, id: string, input: un
 
       if (entry.purchaseOrderId) await tx.$queryRaw`SELECT 1 FROM "purchase_orders" WHERE "id" = ${entry.purchaseOrderId} FOR UPDATE`;
       if (entry.salesOrderId) await tx.$queryRaw`SELECT 1 FROM "sales_orders" WHERE "id" = ${entry.salesOrderId} FOR UPDATE`;
+      if (entry.workOrderId) await tx.$queryRaw`SELECT 1 FROM "work_orders" WHERE "id" = ${entry.workOrderId} FOR UPDATE`;
       const originals = await tx.stockMove.findMany({ where: { entryId: id, isReversal: false } });
       await lockStock(tx, entry.companyId, originals.map((m) => m.productId));
       await applyDocumentEffects(tx, entry, entry.lines, -1);

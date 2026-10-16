@@ -81,6 +81,13 @@ export async function getPurchaseOrder(ctx: AccessContext, id: string) {
   return po;
 }
 
+/** BLOCKED vendors (supplier qualification, see docs/MANUFACTURING.md) get no new or approved orders. */
+function assertVendorQualified(vendor: { name: string; qualificationStatus: string }) {
+  if (vendor.qualificationStatus === "BLOCKED") {
+    throw new AppError("VENDOR_NOT_QUALIFIED", `${vendor.name} is blocked by supplier qualification`, 422);
+  }
+}
+
 async function resolveParty(
   tx: Prisma.TransactionClient,
   ctx: AccessContext,
@@ -97,6 +104,7 @@ async function resolveParty(
   if (!warehouse.isActive) throw new AppError("INVALID_STATE", "Warehouse is inactive", 422);
   if (!vendor) throw new AppError("NOT_FOUND", "Vendor not found", 404);
   if (vendor.status !== RecordStatus.ACTIVE) throw new AppError("INVALID_STATE", "Vendor is not active", 422);
+  assertVendorQualified(vendor);
   const supplierState = h.supplierState ?? vendor.stateCode ?? null;
   return {
     company: branch.company,
@@ -217,6 +225,9 @@ export async function transitionPurchaseOrder(ctx: AccessContext, id: string, ac
     const expect = (...allowed: PurchaseOrderStatus[]) => {
       if (!allowed.includes(po.status)) throw new AppError("INVALID_STATE", `Cannot ${action} a purchase order that is ${po.status}`, 422);
     };
+    if (action === "submit" || action === "approve") {
+      assertVendorQualified(await tx.vendor.findUniqueOrThrow({ where: { id: po.vendorId }, select: { name: true, qualificationStatus: true } }));
+    }
     let data: Prisma.PurchaseOrderUncheckedUpdateInput;
     switch (action) {
       case "submit": {

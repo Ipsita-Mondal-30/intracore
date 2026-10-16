@@ -2,6 +2,10 @@ import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
 import { assertCompanyAccess, can, type AccessContext } from "@/lib/access";
 import { leadVisibilityWhere } from "@/features/leads/scope";
+import { projectScope } from "@/features/projects/projects";
+import { ticketScope } from "@/features/service/tickets";
+import { visitScope } from "@/features/service/field";
+import { jobScope } from "@/features/service/installations";
 
 /**
  * Records that tasks and documents may attach to. Each resolver returns the record's
@@ -60,19 +64,19 @@ const resolvers: Record<string, Resolver> = {
   employee: companyRecord("employee.view", (ctx, id) =>
     prisma.employee.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
   project: companyRecord("project.view", (ctx, id) =>
-    prisma.project.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+    prisma.project.findFirst({ where: { id, ...projectScope(ctx) }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
   project_task: companyRecord("project.view", (ctx, id) =>
-    prisma.projectTask.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { project: { select: { companyId: true } } } }).then((r) => r && { companyId: r.project.companyId, branchId: null })),
+    prisma.projectTask.findFirst({ where: { id, organizationId: ctx.organizationId, project: projectScope(ctx) }, select: { project: { select: { companyId: true } } } }).then((r) => r && { companyId: r.project.companyId, branchId: null })),
   ticket: companyRecord("ticket.view", (ctx, id) =>
-    prisma.ticket.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+    prisma.ticket.findFirst({ where: { id, ...ticketScope(ctx) }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
   asset: companyRecord("asset.view", (ctx, id) =>
     prisma.asset.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
   service_contract: companyRecord("contract.view", (ctx, id) =>
     prisma.serviceContract.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
   service_visit: companyRecord("field.view", (ctx, id) =>
-    prisma.serviceVisit.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+    prisma.serviceVisit.findFirst({ where: { id, ...visitScope(ctx) }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
   installation_job: companyRecord("field.view", (ctx, id) =>
-    prisma.installationJob.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+    prisma.installationJob.findFirst({ where: { id, ...jobScope(ctx) }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
   delivery_dispatch: companyRecord("field.view", (ctx, id) =>
     prisma.deliveryDispatch.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { stockEntry: { select: { companyId: true, branchId: true } } } }).then((r) => r && r.stockEntry)),
   work_order: companyRecord("manufacturing.view", (ctx, id) =>
