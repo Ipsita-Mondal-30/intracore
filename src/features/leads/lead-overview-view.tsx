@@ -33,6 +33,7 @@ import {
   type DialUpdateLead,
 } from "@/features/leads/dial-update-customer-modal";
 import { CallRecordingPlayer } from "@/features/leads/call-recording-player";
+import { ConvertLeadButton } from "@/features/leads/convert-lead-button";
 import {
   formatShortDateTime,
   shortLeadId,
@@ -52,6 +53,7 @@ export type LeadOverviewLead = DialUpdateLead & {
   jobTitle: string | null;
   description: string | null;
   reEngagedAt: string | null;
+  convertedCustomerId?: string | null;
   source: { name: string } | null;
   stage: { name: string } | null;
   assignedUser: { name: string | null; email: string } | null;
@@ -71,6 +73,7 @@ export function LeadOverviewView({
   lastUpdated,
   backHref = "/leads/re-engaged",
   canEdit = true,
+  canConvert = false,
   openDialOnMount = false,
 }: {
   lead: LeadOverviewLead;
@@ -86,6 +89,7 @@ export function LeadOverviewView({
   lastUpdated: string;
   backHref?: string;
   canEdit?: boolean;
+  canConvert?: boolean;
   openDialOnMount?: boolean;
 }) {
   const router = useRouter();
@@ -224,6 +228,12 @@ export function LeadOverviewView({
             label="Close"
             onClick={() => router.push(backHref)}
           />
+          {canConvert ? (
+            <ConvertLeadButton
+              leadId={lead.id}
+              convertedCustomerId={lead.convertedCustomerId ?? null}
+            />
+          ) : null}
         </div>
 
         <UnderlineTabs

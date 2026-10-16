@@ -3,6 +3,7 @@ import { getSupabaseAuthUser } from "@/lib/auth/supabase-user";
 import { isAppConfigured } from "@/lib/config/env";
 import { getSessionContext, requireOrganizationAccess } from "@/lib/tenant";
 import { getLeadNavViews } from "@/features/leads/queries";
+import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,9 @@ export default async function AppLayout({
     redirect("/login");
   }
   if (!session.activeOrganizationId) {
+    // Portal-only users (customers, vendors, …) have no membership: send them to their portal.
+    const portal = await prisma.portalAccount.findFirst({ where: { userId: session.userId, status: "ACTIVE" }, select: { id: true } });
+    if (portal) redirect("/portal");
     redirect("/onboarding/organization");
   }
 

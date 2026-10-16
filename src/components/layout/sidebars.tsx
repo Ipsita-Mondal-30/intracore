@@ -22,13 +22,26 @@ import {
   BarChart3,
   ListTodo,
   Upload,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/actions";
 
 const modules = [
   { href: "/dashboard", label: "Overview", color: "bg-[var(--ic-primary)]" },
+  { href: "/analytics", label: "Analytics", color: "bg-fuchsia-500" },
   { href: "/leads", label: "Leads", color: "bg-[var(--ic-module-orange)]" },
+  { href: "/crm/customers", label: "CRM", color: "bg-emerald-500" },
+  { href: "/sales/quotations", label: "Sales", color: "bg-sky-500" },
+  { href: "/inventory/products", label: "Inventory", color: "bg-amber-500" },
+  { href: "/purchasing/orders", label: "Purchasing", color: "bg-rose-500" },
+  { href: "/finance/invoices", label: "Finance", color: "bg-violet-500" },
+  { href: "/hr/employees", label: "HR", color: "bg-pink-500" },
+  { href: "/projects", label: "Projects", color: "bg-lime-500" },
+  { href: "/service/tickets", label: "Service", color: "bg-cyan-500" },
+  { href: "/manufacturing/work-orders", label: "Manufacturing", color: "bg-orange-600" },
+  { href: "/communication/messages", label: "Communication", color: "bg-teal-500" },
+  { href: "/automation/approvals", label: "Automation", color: "bg-indigo-500" },
   {
     href: "/settings/organization",
     label: "Organization",
@@ -127,6 +140,9 @@ const orgNavGroups: NavGroup[] = [
         label: "Organization",
         icon: Building2,
       },
+      { href: "/settings/companies", label: "Companies", icon: Building2 },
+      { href: "/settings/crm", label: "CRM rules", icon: Users },
+      { href: "/settings/catalog", label: "Units & taxes", icon: Package },
       { href: "/settings/users", label: "Users", icon: Users },
       { href: "/settings/roles", label: "Roles", icon: Shield },
       { href: "/settings/notifications", label: "Notifications", icon: Radio },
@@ -140,7 +156,169 @@ const orgNavGroups: NavGroup[] = [
         label: "Integrations",
         icon: Plug,
       },
+      { href: "/settings/jobs", label: "Jobs & webhooks", icon: Radio },
+      { href: "/settings/system", label: "System configuration", icon: Settings },
+      { href: "/settings/portal-users", label: "Portal users", icon: Users },
+      { href: "/settings/audit", label: "Audit trail", icon: Shield },
+      { href: "/settings/imports", label: "Imports", icon: Upload },
+      { href: "/settings/exports", label: "Exports", icon: Download },
+      { href: "/settings/retention", label: "Data retention", icon: Settings },
+      { href: "/settings/backups", label: "Backups", icon: Shield },
     ],
+  },
+];
+
+/** Sidebar links for ERP sections, keyed by path prefix. */
+const sectionNav: { prefix: string; group: NavGroup }[] = [
+  {
+    prefix: "/analytics",
+    group: {
+      title: "ANALYTICS",
+      items: [
+        { href: "/analytics", label: "Business overview", icon: BarChart3, exact: true },
+        { href: "/analytics/mis", label: "Management MIS", icon: BarChart3 },
+        { href: "/analytics/reports", label: "Report builder", icon: ListTodo },
+      ],
+    },
+  },
+  {
+    prefix: "/communication",
+    group: {
+      title: "COMMUNICATION",
+      items: [
+        { href: "/communication/messages", label: "Message log", icon: Radio },
+        { href: "/communication/templates", label: "Templates", icon: Package },
+        { href: "/communication/consent", label: "Consent", icon: Shield },
+        { href: "/communication/campaigns", label: "Campaigns", icon: BarChart3 },
+        { href: "/communication/segments", label: "Segments", icon: Users },
+        { href: "/communication/feedback", label: "Feedback", icon: CheckCircle2 },
+        { href: "/communication/loyalty", label: "Loyalty", icon: Package },
+      ],
+    },
+  },
+  {
+    prefix: "/automation",
+    group: {
+      title: "AUTOMATION",
+      items: [
+        { href: "/automation/approvals", label: "Approvals", icon: CheckCircle2 },
+        { href: "/automation/workflows", label: "Workflows", icon: GitBranch },
+        { href: "/automation/reminders", label: "Reminders", icon: CalendarClock },
+        { href: "/automation/notifications", label: "Notification history", icon: Radio },
+      ],
+    },
+  },
+  {
+    prefix: "/crm",
+    group: {
+      title: "CRM",
+      items: [
+        { href: "/crm/customers", label: "Customers", icon: Building2 },
+        { href: "/crm/contacts", label: "Contacts", icon: Users },
+        { href: "/crm/opportunities", label: "Opportunities", icon: KanbanSquare },
+        { href: "/crm/reports", label: "Funnel", icon: BarChart3 },
+      ],
+    },
+  },
+  {
+    prefix: "/sales",
+    group: {
+      title: "SALES",
+      items: [
+        { href: "/sales/quotations", label: "Quotations", icon: ListTodo },
+        { href: "/sales/orders", label: "Sales orders", icon: CheckCircle2 },
+      ],
+    },
+  },
+  {
+    prefix: "/inventory",
+    group: {
+      title: "INVENTORY",
+      items: [
+        { href: "/inventory/products", label: "Products", icon: Package },
+        { href: "/inventory/stock", label: "Stock levels", icon: BarChart3 },
+        { href: "/inventory/entries", label: "Stock entries", icon: ListTodo },
+        { href: "/inventory/reorder", label: "Reorder", icon: CalendarClock },
+        { href: "/inventory/warehouses", label: "Warehouses", icon: Building2 },
+      ],
+    },
+  },
+  {
+    prefix: "/purchasing",
+    group: {
+      title: "PURCHASING",
+      items: [
+        { href: "/purchasing/vendors", label: "Vendors", icon: Users },
+        { href: "/purchasing/orders", label: "Purchase orders", icon: ListTodo },
+        { href: "/purchasing/bills", label: "Vendor bills", icon: CheckCircle2 },
+      ],
+    },
+  },
+  {
+    prefix: "/finance",
+    group: {
+      title: "FINANCE",
+      items: [
+        { href: "/finance/invoices", label: "Invoices", icon: ListTodo },
+        { href: "/finance/credit-notes", label: "Credit notes", icon: XCircle },
+        { href: "/finance/receipts", label: "Receipts", icon: CheckCircle2 },
+        { href: "/finance/payments", label: "Vendor payments", icon: Upload },
+        { href: "/finance/debit-notes", label: "Debit notes", icon: XCircle },
+        { href: "/finance/expenses", label: "Expenses", icon: Package },
+        { href: "/finance/bank", label: "Bank & cash", icon: Building2 },
+        { href: "/finance/journals", label: "Journals", icon: GitBranch },
+        { href: "/finance/reports", label: "Reports & GST", icon: BarChart3 },
+        { href: "/finance/setup", label: "Setup", icon: Settings },
+      ],
+    },
+  },
+  {
+    prefix: "/hr",
+    group: {
+      title: "HR",
+      items: [
+        { href: "/hr/employees", label: "Employees", icon: Users },
+        { href: "/hr/attendance", label: "Attendance", icon: CalendarClock },
+        { href: "/hr/leave", label: "Leave", icon: CalendarClock },
+        { href: "/hr/recruitment", label: "Recruitment", icon: Users },
+        { href: "/hr/performance", label: "Performance", icon: BarChart3 },
+        { href: "/hr/payroll", label: "Payroll", icon: Package },
+        { href: "/hr/settings", label: "HR settings", icon: Settings },
+      ],
+    },
+  },
+  {
+    prefix: "/projects",
+    group: { title: "PROJECTS", items: [{ href: "/projects", label: "Projects", icon: KanbanSquare, exact: true }, { href: "/projects/timesheets", label: "My timesheet", icon: CalendarClock }] },
+  },
+  {
+    prefix: "/service",
+    group: {
+      title: "SERVICE",
+      items: [
+        { href: "/service/tickets", label: "Tickets", icon: ListTodo },
+        { href: "/service/assets", label: "Assets", icon: Package },
+        { href: "/service/contracts", label: "AMC contracts", icon: CheckCircle2 },
+        { href: "/service/schedule", label: "Field schedule", icon: CalendarClock },
+        { href: "/service/installations", label: "Installations", icon: Building2 },
+        { href: "/service/dispatch", label: "Dispatch & POD", icon: Upload },
+        { href: "/service/reports", label: "Service reports", icon: BarChart3 },
+        { href: "/service/settings", label: "SLA & categories", icon: Settings },
+      ],
+    },
+  },
+  {
+    prefix: "/manufacturing",
+    group: {
+      title: "MANUFACTURING",
+      items: [
+        { href: "/manufacturing/work-orders", label: "Work orders", icon: ListTodo },
+        { href: "/manufacturing/boms", label: "Bills of materials", icon: Package },
+        { href: "/manufacturing/mrp", label: "Material planning", icon: BarChart3 },
+        { href: "/manufacturing/quality", label: "Quality", icon: CheckCircle2 },
+        { href: "/manufacturing/suppliers", label: "Supplier quality", icon: Users },
+      ],
+    },
   },
 ];
 
@@ -176,6 +354,10 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const firstName = userName.split(" ")[0] || userName;
+  const contextGroups = [
+    ...sectionNav.filter((section) => pathname.startsWith(section.prefix)).map((section) => section.group),
+    ...(pathname.startsWith("/settings") ? orgNavGroups : []),
+  ];
 
   return (
     <aside className="flex w-full max-w-[240px] shrink-0 flex-col py-5 pr-2 md:w-[240px]">
@@ -275,8 +457,8 @@ export function AppSidebar({
           </div>
         ))}
 
-        {pathname.startsWith("/settings")
-          ? orgNavGroups.map((group) => (
+        {contextGroups.length > 0
+          ? contextGroups.map((group) => (
               <div key={group.title}>
                 <p className="mb-2 px-3 text-2xs font-semibold tracking-wider text-subtle">
                   {group.title}

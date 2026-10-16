@@ -84,6 +84,7 @@ Without these vars, actions still succeed; invites show a copyable URL fallback.
 | `ENCRYPTION_KEY` | Random 32+ char string |
 | `RESEND_API_KEY` | Resend API key (optional) |
 | `RESEND_FROM_EMAIL` | Verified sender address (optional) |
+| `CRON_SECRET` | Random 32+ char string for `/api/v1/jobs/run` and `/api/health?db=1` |
 
 3. In Supabase → **Authentication → URL Configuration**, add:
    - Site URL: your Vercel domain
@@ -91,10 +92,16 @@ Without these vars, actions still succeed; invites show a copyable URL fallback.
 
 4. Redeploy after saving env vars. If config is missing, the app shows `/setup` instead of a generic 500.
 
-5. After first deploy, run migrations against production Postgres:
+5. Run migrations as a **separate release step** against production Postgres (the build
+   no longer migrates, so preview builds cannot change the production schema):
    ```bash
    npx prisma migrate deploy
    ```
+6. Run `supabase/migrations/*.sql` in the Supabase SQL editor (private storage buckets).
+7. Schedule background jobs: call `POST /api/v1/jobs/run` with
+   `Authorization: Bearer $CRON_SECRET` (Vercel Cron, Supabase pg_cron + pg_net, or any
+   scheduler). Daily is enough for quotation expiry and low-stock alerts; run it more often
+   if you rely on task reminders.
 
 Check deployment config: `GET /api/health` returns `{ missingEnv: [...] }` when something is not set.
 
@@ -112,3 +119,35 @@ npm run build
 npm test
 npm run lint
 ```
+
+## ERP modules
+
+- **Core:** companies and branches (multi-GSTIN), CRM, catalog, quotations and sales orders.
+- **Inventory and purchasing:** warehouses, stock ledger, reservations, purchase orders, goods receipts, vendor bills.
+- **Finance:** ledger, GST and finance reports.
+- **HR:** attendance, leave, recruitment, performance, payroll.
+- **Projects and service:** projects, service tickets with SLAs, AMC/warranty, field work.
+- **Manufacturing and quality:** manufacturing, MRP, quality.
+- **Automation and communication:** workflows and approvals, the communication centre (email, SMS, WhatsApp), marketing and loyalty, document versions and e-signature.
+- **Portals:** customer, dealer, vendor, employee and technician.
+- **Analytics:** dashboards, MIS, report builder.
+- **Administration:** users and roles, settings, audit search, imports and exports, retention, backups.
+
+Where to read more:
+- REST API (`/api/v1`): [docs/API.md](docs/API.md)
+- What is done, tested, partial or blocked: [docs/COMPLETION_MATRIX.md](docs/COMPLETION_MATRIX.md)
+- How modules are built: [docs/ERP-CONVENTIONS.md](docs/ERP-CONVENTIONS.md)
+- Backups and restore: [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md)
+
+## Tests
+
+Tests run against a throwaway local Postgres (never the database in `.env`):
+
+```bash
+brew install postgresql@17          # once
+# start a cluster on port 54329 (see .env.test), then:
+./scripts/reset-test-db.sh          # recreate test DBs and apply all migrations
+npm test
+```
+
+`tests/setup.ts` refuses to run if `DATABASE_URL` is not on localhost.
