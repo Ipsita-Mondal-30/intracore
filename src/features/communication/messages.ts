@@ -47,7 +47,7 @@ export async function listMessages(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["toAddress", "fromAddress", "subject"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.communicationLog.findMany({
         where,
         include: { template: { select: { id: true, name: true } } },

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useInvalidateAfterWrite } from "@/lib/query/hooks";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export function ApiForm({
   confirm?: string;
 }) {
   const router = useRouter();
+  const invalidate = useInvalidateAfterWrite();
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -50,8 +52,9 @@ export function ApiForm({
       const body = { ...formValues(form), ...extra };
       const data = await apiFetch<{ id?: string } | null>(path, { method, body });
       toast.success(successMessage);
+      // Mark cached reads stale and refresh the server-rendered page (also clears the router cache).
+      invalidate();
       if (redirect) router.push(redirect.replace(":id", data?.id ?? ""));
-      else router.refresh();
       if (method === "POST" && !redirect) form.reset();
     } catch (error) {
       if (error instanceof ApiError) {

@@ -392,7 +392,7 @@ export async function listLeaveRequests(ctx: AccessContext, query: unknown) {
   }
   const where: Prisma.LeaveRequestWhereInput = { AND: filters };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.leaveRequest.findMany({ where, include: requestInclude, ...listArgs(q, ["createdAt", "startDate"], "createdAt") }),
       prisma.leaveRequest.count({ where }),
     ]),

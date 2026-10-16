@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { afterCommit, invalidateAccess } from "@/lib/cache/request-cache";
 import { MemberStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
@@ -108,7 +109,7 @@ export async function createCompany(ctx: AccessContext, input: unknown) {
   assertCan(ctx, "company.create");
   const data = createCompanySchema.parse(input);
 
-  return prisma.$transaction(async (tx) => {
+  return afterCommit(prisma.$transaction(async (tx) => {
     const company = await tx.company.create({
       data: { ...data, organizationId: ctx.organizationId },
     });
@@ -138,7 +139,7 @@ export async function createCompany(ctx: AccessContext, input: unknown) {
       next: company,
     });
     return company;
-  });
+  }), () => invalidateAccess(ctx.organizationId));
 }
 
 export async function updateCompany(ctx: AccessContext, id: string, input: unknown) {
@@ -275,7 +276,7 @@ export async function setMemberScopes(ctx: AccessContext, memberId: string, inpu
   const managed = [...ctx.companies].filter(([, s]) => s === "all").map(([id]) => id);
   const unique = new Map(scopes.map((s) => [`${s.companyId}:${s.branchId ?? ""}`, s]));
 
-  return prisma.$transaction(async (tx) => {
+  return afterCommit(prisma.$transaction(async (tx) => {
     const previous = await tx.memberScope.findMany({
       where: { memberId, companyId: { in: managed } },
       select: { companyId: true, branchId: true },
@@ -300,7 +301,7 @@ export async function setMemberScopes(ctx: AccessContext, memberId: string, inpu
       where: { memberId, companyId: { in: managed } },
       select: { id: true, companyId: true, branchId: true },
     });
-  });
+  }), () => invalidateAccess(ctx.organizationId));
 }
 
 // ─── Document numbering ──────────────────────────────────────────────────────

@@ -43,7 +43,7 @@ export async function listSavedReports(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ entity: z.string().max(40).optional() }).parse(query);
   const where: Prisma.SavedReportWhereInput = { AND: [visibleWhere(ctx), q.entity ? { entity: q.entity } : {}, searchWhere(q.q, ["name"])] };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.savedReport.findMany({ where, ...listArgs(q, ["name", "createdAt", "updatedAt"], "name") }),
       prisma.savedReport.count({ where }),
     ]),

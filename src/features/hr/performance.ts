@@ -87,7 +87,7 @@ export async function listReviewCycles(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ status: z.enum(["DRAFT", "ACTIVE", "CLOSED"]).optional() }).parse(query);
   const where: Prisma.ReviewCycleWhereInput = { ...cycleWhere(ctx), status: q.status };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.reviewCycle.findMany({ where, include: { _count: { select: { reviews: true, goals: true } } }, ...listArgs(q, ["startDate", "createdAt"], "startDate") }),
       prisma.reviewCycle.count({ where }),
     ]),
@@ -163,7 +163,7 @@ export async function listGoals(ctx: AccessContext, query: unknown) {
     AND: [goalWhere(ctx), { employeeId: q.employeeId, cycleId: q.cycleId }, q.mine === "true" ? { employee: ownEmployee(ctx) } : {}],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.goal.findMany({ where, include: { employee: { select: { id: true, fullName: true, employeeNumber: true } }, cycle: { select: { id: true, name: true, status: true } } }, ...listArgs(q, ["createdAt", "dueDate"], "createdAt") }),
       prisma.goal.count({ where }),
     ]),
@@ -244,7 +244,7 @@ export async function listPerformanceReviews(ctx: AccessContext, query: unknown)
   const q = listQuerySchema.extend({ cycleId: z.string().optional(), employeeId: z.string().optional(), status: z.string().optional() }).parse(query);
   const where: Prisma.PerformanceReviewWhereInput = { AND: [reviewWhere(ctx), { cycleId: q.cycleId, employeeId: q.employeeId, status: q.status }] };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.performanceReview.findMany({ where, include: reviewInclude, ...listArgs(q, ["updatedAt"], "updatedAt") }),
       prisma.performanceReview.count({ where }),
     ]),

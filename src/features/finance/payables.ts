@@ -190,7 +190,7 @@ export async function listVendorPayments(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["number", "reference", "notes"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.vendorPayment.findMany({ where, include: { vendor: { select: { id: true, name: true } }, bankAccount: { select: { name: true } } }, ...listArgs(q, ["createdAt", "paymentDate", "amount"], "createdAt") }),
       prisma.vendorPayment.count({ where }),
     ]),
@@ -345,7 +345,7 @@ export async function listDebitNotes(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ status: z.nativeEnum(FinanceDocStatus).optional(), vendorId: z.string().optional(), billId: z.string().optional() }).parse(query);
   const where: Prisma.DebitNoteWhereInput = { AND: [companyScopeWhere(ctx), { status: q.status, vendorId: q.vendorId, billId: q.billId }, searchWhere(q.q, ["number", "reason"])] };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.debitNote.findMany({ where, include: { vendor: { select: { id: true, name: true } }, bill: { select: { id: true, number: true } } }, ...listArgs(q, ["createdAt", "noteDate", "grandTotal"], "createdAt") }),
       prisma.debitNote.count({ where }),
     ]),

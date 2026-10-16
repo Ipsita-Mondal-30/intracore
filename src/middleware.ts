@@ -41,9 +41,10 @@ export async function middleware(request: NextRequest) {
   });
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Verifies the JWT locally against the cached JWKS (refreshing an expired session) instead
+    // of calling the Auth server on every request.
+    const { data } = await supabase.auth.getClaims();
+    const user = data?.claims?.sub ? data.claims : null;
 
     const { pathname } = request.nextUrl;
     const isPublic =

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { afterCommit, invalidateAccess } from "@/lib/cache/request-cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
@@ -136,7 +137,7 @@ export async function createRole(ctx: AccessContext, input: unknown) {
   const data = roleSchema.parse(input);
   assertWithinOwnAccess(ctx, data, data.permissions);
 
-  return prisma.$transaction(async (tx) => {
+  return afterCommit(prisma.$transaction(async (tx) => {
     const role = await tx.role.create({
       data: { organizationId: ctx.organizationId, code: data.code, name: data.name, description: data.description ?? null },
     });
@@ -149,14 +150,14 @@ export async function createRole(ctx: AccessContext, input: unknown) {
       next: { code: role.code, name: role.name, description: role.description, permissions: data.permissions },
     });
     return present(await loadRole(tx, ctx, role.id));
-  });
+  }), () => invalidateAccess(ctx.organizationId));
 }
 
 export async function updateRole(ctx: AccessContext, id: string, input: unknown) {
   assertCan(ctx, "role.manage");
   const data = roleSchema.omit({ code: true }).partial().parse(input);
 
-  return prisma.$transaction(async (tx) => {
+  return afterCommit(prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM roles WHERE id = ${id} AND "organizationId" = ${ctx.organizationId} FOR UPDATE`;
     const before = present(await loadRole(tx, ctx, id));
     if (before.isSystem) {
@@ -186,12 +187,12 @@ export async function updateRole(ctx: AccessContext, id: string, input: unknown)
       next: { name: after.name, description: after.description, addedPermissions: added },
     });
     return after;
-  });
+  }), () => invalidateAccess(ctx.organizationId));
 }
 
 export async function deleteRole(ctx: AccessContext, id: string) {
   assertCan(ctx, "role.manage");
-  return prisma.$transaction(async (tx) => {
+  return afterCommit(prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM roles WHERE id = ${id} AND "organizationId" = ${ctx.organizationId} FOR UPDATE`;
     const role = present(await loadRole(tx, ctx, id));
     if (role.isSystem) throw new AppError("SYSTEM_ROLE", "System roles cannot be deleted", 422);
@@ -210,5 +211,5 @@ export async function deleteRole(ctx: AccessContext, id: string) {
       previous: { code: role.code, name: role.name, permissions: role.permissions },
     });
     return { id, deleted: true };
-  });
+  }), () => invalidateAccess(ctx.organizationId));
 }

@@ -64,7 +64,7 @@ export async function listTemplates(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["name", "providerTemplateName"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.messageTemplate.findMany({ where, ...listArgs(q, ["createdAt", "name", "channel", "updatedAt"], "name") }),
       prisma.messageTemplate.count({ where }),
     ]),

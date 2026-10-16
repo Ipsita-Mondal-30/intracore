@@ -30,7 +30,7 @@ export async function listBackgroundJobs(ctx: AccessContext, query: unknown) {
   const q = jobList.parse(query);
   const where: Prisma.BackgroundJobWhereInput = { organizationId: ctx.organizationId, status: q.status, type: q.type };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.backgroundJob.findMany({ where, select: jobSelect, ...listArgs(q, ["createdAt", "updatedAt", "runAt"], "updatedAt") }),
       prisma.backgroundJob.count({ where }),
     ]),
@@ -71,7 +71,7 @@ export async function listWebhookEvents(ctx: AccessContext, query: unknown) {
   const q = eventList.parse(query);
   const where: Prisma.WebhookEventWhereInput = { organizationId: ctx.organizationId, status: q.status, provider: q.provider };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.webhookEvent.findMany({
         where,
         select: { id: true, provider: true, externalId: true, status: true, error: true, attempts: true, receivedAt: true, processedAt: true },
@@ -102,7 +102,7 @@ export async function listJobRuns(ctx: AccessContext, query: unknown) {
   const q = runList.parse(query);
   const where: Prisma.JobRunWhereInput = { name: q.name, status: q.status };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.jobRun.findMany({ where, select: { id: true, name: true, status: true, startedAt: true, finishedAt: true }, ...listArgs(q, ["startedAt"], "startedAt") }),
       prisma.jobRun.count({ where }),
     ]),

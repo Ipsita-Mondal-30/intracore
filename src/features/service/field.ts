@@ -216,7 +216,7 @@ export async function listVisits(ctx: AccessContext, query: unknown) {
     scheduledStart: q.from || q.to ? { gte: q.from, lt: q.to } : undefined,
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.serviceVisit.findMany({ where, include, ...listArgs(q, ["scheduledStart", "createdAt"], "scheduledStart") }),
       prisma.serviceVisit.count({ where }),
     ]),

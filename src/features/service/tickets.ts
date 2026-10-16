@@ -296,7 +296,7 @@ export async function listTickets(ctx: AccessContext, query: unknown) {
     ],
   };
   const page = await paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.ticket.findMany({
         where,
         include: { customer: { select: { id: true, name: true } }, category: { select: { id: true, name: true } } },

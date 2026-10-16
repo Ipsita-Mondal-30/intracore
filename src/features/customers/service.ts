@@ -110,7 +110,7 @@ export async function listCustomers(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["name", "legalName", "email", "phone", "gstin", "code"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.customer.findMany({
         where,
         include: { owner: { select: { id: true, name: true, email: true } }, _count: { select: { contacts: true, opportunities: true } } },
@@ -215,7 +215,7 @@ export async function listContacts(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["fullName", "email", "phone", "jobTitle"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.contact.findMany({
         where,
         include: { customer: { select: { id: true, name: true } } },

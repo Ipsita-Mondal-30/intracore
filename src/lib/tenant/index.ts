@@ -4,7 +4,8 @@ import { hasSupabasePublicEnv } from "@/lib/config/env";
 import { getSupabaseAuthUser } from "@/lib/auth/supabase-user";
 import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
-import { ensurePrismaUser } from "@/lib/auth/ensure-user";
+import { getSessionUser } from "@/lib/auth/ensure-user";
+import { ACCESS_TTL, accessTag, invalidateUser, sharedCache, userTag } from "@/lib/cache/request-cache";
 import { perfTime } from "@/lib/perf";
 import { systemRolePermissions } from "@/lib/permissions/catalog";
 
@@ -45,7 +46,7 @@ async function loadSessionContext(): Promise<SessionContext | null> {
       return null;
     }
 
-    const dbUser = await ensurePrismaUser(user);
+    const dbUser = await getSessionUser(user);
     authTimer.end();
 
     return {
@@ -142,16 +143,33 @@ async function loadOrganizationAccess(
     );
   }
 
-  const tenant = await buildTenantContext(session.userId, orgId);
+  const tenant = await cachedTenantContext(session.userId, orgId);
 
   if (session.activeOrganizationId !== tenant.organizationId) {
     await prisma.user.update({
       where: { id: session.userId },
       data: { activeOrganizationId: tenant.organizationId },
     });
+    invalidateUser(session.userId);
   }
 
   return tenant;
+}
+
+/**
+ * `buildTenantContext` through the shared cache (tags `access:<org>` and `user:<id>`, see
+ * src/lib/cache/request-cache.ts). Failures (no or inactive membership) are never cached.
+ */
+async function cachedTenantContext(userId: string, organizationId: string): Promise<TenantContext> {
+  const cached = await sharedCache(
+    async () => {
+      const tenant = await buildTenantContext(userId, organizationId);
+      return { ...tenant, permissions: [...tenant.permissions] };
+    },
+    ["tenant", userId, organizationId],
+    { tags: [accessTag(organizationId), userTag(userId)], revalidate: ACCESS_TTL },
+  );
+  return { ...cached, permissions: new Set(cached.permissions) };
 }
 
 /** Request-scoped tenant + RBAC. Pages should call this (or requirePermission), not getUser again. */

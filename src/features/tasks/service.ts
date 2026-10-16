@@ -86,7 +86,7 @@ export async function listTasks(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.task.findMany({ where, ...listArgs(q, ["createdAt", "dueAt", "priority", "title"], "dueAt") }),
       prisma.task.count({ where }),
     ]),

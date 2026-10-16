@@ -67,7 +67,7 @@ export async function listAttendance(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.extend({ from: zDay.optional(), to: zDay.optional() }).parse(query);
   const where: Prisma.AttendanceRecordWhereInput = { ...employeeOf(p), date: q.from || q.to ? { gte: q.from, lte: q.to } : undefined };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.attendanceRecord.findMany({
         where,
         select: { id: true, date: true, status: true, checkIn: true, checkOut: true, workedMinutes: true, lateMinutes: true },
@@ -157,7 +157,7 @@ export async function listLeaveRequests(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.extend({ status: z.nativeEnum(ApprovalStatus).optional() }).parse(query);
   const where: Prisma.LeaveRequestWhereInput = { ...employeeOf(p), status: q.status };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.leaveRequest.findMany({ where, select: requestSelect, ...listArgs(q, ["createdAt", "startDate"], "createdAt") }),
       prisma.leaveRequest.count({ where }),
     ]),
