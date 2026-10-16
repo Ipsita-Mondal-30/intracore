@@ -32,7 +32,7 @@ export function Avatar({
         src={src}
         alt={name ?? "Avatar"}
         className={cn(
-          "rounded-full object-cover ring-2 ring-white",
+          "rounded-full object-cover ring-2 ring-surface",
           sizes[size],
           className,
         )}
@@ -43,7 +43,7 @@ export function Avatar({
   return (
     <div
       className={cn(
-        "inline-flex items-center justify-center rounded-full bg-primary-soft font-semibold text-primary ring-2 ring-white",
+        "inline-flex items-center justify-center rounded-full bg-primary-soft font-semibold text-primary ring-2 ring-surface",
         sizes[size],
         className,
       )}

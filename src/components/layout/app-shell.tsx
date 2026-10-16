@@ -60,7 +60,7 @@ export function AppShell({
 
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-black/30 transition md:hidden",
+          "fixed inset-0 z-40 bg-overlay transition md:hidden",
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={() => setMobileOpen(false)}

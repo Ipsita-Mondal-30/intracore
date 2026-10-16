@@ -89,7 +89,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
                 <div><dt className="inline text-subtle">Failed: </dt><dd className="inline">{reasons(m.failedByReason)}</dd></div>
               </dl>
               {m.failedByReason.NOT_CONFIGURED ? (
-                <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-warning">No messaging provider is configured for {humanize(c.channel)}, so these messages were not sent.</p>
+                <p className="rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">No messaging provider is configured for {humanize(c.channel)}, so these messages were not sent.</p>
               ) : null}
               {m.simulated.total > 0 ? (
                 <div className="rounded-xl border border-dashed border-[var(--ic-border)] px-3 py-2 text-sm">

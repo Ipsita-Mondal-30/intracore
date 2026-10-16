@@ -19,7 +19,7 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "flex min-h-[112px] flex-col justify-between rounded-card border bg-white p-4 shadow-card",
+        "flex min-h-[112px] flex-col justify-between rounded-card border bg-surface p-4 shadow-card",
         highlighted
           ? "border-primary ring-1 ring-primary/20"
           : "border-[var(--ic-border)]",

@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 const tones = {
   default: "bg-[var(--ic-surface-muted)] text-muted",
   primary: "bg-primary-soft text-primary",
-  success: "bg-emerald-50 text-success",
-  warning: "bg-amber-50 text-warning",
-  danger: "bg-red-50 text-danger",
-  neutral: "bg-slate-100 text-slate-700",
+  success: "bg-success-soft text-success",
+  warning: "bg-warning-soft text-warning",
+  danger: "bg-danger-soft text-danger",
+  neutral: "bg-neutral-soft text-neutral-text",
 } as const;
 
 export function Badge({

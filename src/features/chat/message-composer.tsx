@@ -49,7 +49,7 @@ export function MessageComposer({
   };
 
   return (
-    <div className="border-t border-[var(--ic-border)] bg-white p-3">
+    <div className="border-t border-[var(--ic-border)] bg-surface p-3">
       <div className="flex items-end gap-2">
         <Button type="button" variant="secondary" size="icon-sm" disabled={disabled}>
           <Paperclip className="h-4 w-4" />

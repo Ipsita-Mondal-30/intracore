@@ -150,7 +150,7 @@ export function NotificationCenter({
             aria-label="Close notifications"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-full z-50 mt-2 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-[var(--ic-border)] bg-white shadow-card">
+          <div className="absolute right-0 top-full z-50 mt-2 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-[var(--ic-border)] bg-surface shadow-card">
             <div className="flex items-center justify-between border-b border-[var(--ic-border)] px-4 py-3">
               <p className="font-semibold">Notifications</p>
               <Button type="button" variant="secondary" size="sm" onClick={markAllRead}>

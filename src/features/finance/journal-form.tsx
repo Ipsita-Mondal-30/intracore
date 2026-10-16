@@ -124,7 +124,7 @@ export function JournalForm({ companyId, accounts, defaultDate }: { companyId: s
       </p>
 
       {errors.length ? (
-        <ul className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">{errors.map((e) => <li key={e}>{e}</li>)}</ul>
+        <ul className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">{errors.map((e) => <li key={e}>{e}</li>)}</ul>
       ) : null}
 
       <Button type="submit" size="sm" disabled={pending}>{pending ? "Saving…" : "Save draft"}</Button>

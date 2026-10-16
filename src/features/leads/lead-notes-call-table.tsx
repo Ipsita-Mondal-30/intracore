@@ -37,7 +37,7 @@ export function LeadNotesCallTable({ rows }: { rows: NotesCallRow[] }) {
           {rows.map((row, index) => (
             <tr
               key={`${row.kind}-${row.id}`}
-              className="border-b border-[var(--ic-border)]/70 last:border-0 odd:bg-white even:bg-[var(--ic-surface-muted)]/40"
+              className="border-b border-[var(--ic-border)]/70 last:border-0 odd:bg-surface even:bg-[var(--ic-surface-muted)]/40"
             >
               <td className="px-3 py-2.5 text-muted">{index + 1}</td>
               <td className="whitespace-nowrap px-3 py-2.5">

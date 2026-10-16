@@ -83,7 +83,7 @@ export function CreditNoteForm({ invoiceId, lines }: { invoiceId: string; lines:
         <Input type="date" value={noteDate} onChange={(e) => setNoteDate(e.target.value)} aria-label="Note date (defaults to today)" title="Note date (defaults to today)" />
       </div>
       <Button type="submit" size="sm" disabled={pending}>{pending ? "Saving…" : "Create draft credit note"}</Button>
-      {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">{error}</p> : null}
     </form>
   );
 }
