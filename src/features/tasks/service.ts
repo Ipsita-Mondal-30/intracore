@@ -133,12 +133,8 @@ export async function processDueTaskReminders(now = new Date()) {
   });
   let sent = 0;
   for (const task of due) {
-    // Claim the reminder first so overlapping job runs cannot notify twice.
-    const claimed = await prisma.task.updateMany({
-      where: { id: task.id, remindedAt: null },
-      data: { remindedAt: now },
-    });
-    if (claimed.count === 0) continue;
+    // Notify (deduplicated) before claiming: overlapping runs notify once, and a crash
+    // between the two steps re-sends a deduplicated notification instead of losing it.
     await createSystemNotification({
       organizationId: task.organizationId,
       userId: task.assignedUserId!,
@@ -147,7 +143,13 @@ export async function processDueTaskReminders(now = new Date()) {
       body: task.dueAt ? `Due ${task.dueAt.toISOString()}` : undefined,
       data: { taskId: task.id, entityType: task.entityType, entityId: task.entityId },
       preferenceKey: "taskNotifications",
+      dedupeKey: `task-reminder:${task.id}:${task.remindAt!.toISOString()}`,
     });
+    const claimed = await prisma.task.updateMany({
+      where: { id: task.id, remindedAt: null },
+      data: { remindedAt: now },
+    });
+    if (claimed.count === 0) continue;
     sent += 1;
   }
   return { due: due.length, sent };

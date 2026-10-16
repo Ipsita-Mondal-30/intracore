@@ -282,8 +282,6 @@ export async function sendContractAndWarrantyReminders(now = new Date(), days = 
     take: 1000,
   });
   for (const c of contracts) {
-    const claimed = await prisma.serviceContract.updateMany({ where: { id: c.id, remindedAt: null }, data: { remindedAt: now } });
-    if (claimed.count === 0) continue;
     await createSystemNotification({
       organizationId: c.organizationId,
       userId: c.createdById,
@@ -291,7 +289,10 @@ export async function sendContractAndWarrantyReminders(now = new Date(), days = 
       title: `AMC ${c.number} (${c.customer.name}) ends ${c.endDate.toISOString().slice(0, 10)}`,
       body: "Send a renewal quotation from the contract page.",
       data: { contractId: c.id, href: `/service/contracts/${c.id}` },
+      dedupeKey: `contract-expiring:${c.id}:${c.endDate.toISOString().slice(0, 10)}`,
     });
+    const claimed = await prisma.serviceContract.updateMany({ where: { id: c.id, remindedAt: null }, data: { remindedAt: now } });
+    if (claimed.count === 0) continue;
     sent += 1;
   }
 
@@ -301,10 +302,8 @@ export async function sendContractAndWarrantyReminders(now = new Date(), days = 
     take: 1000,
   });
   for (const w of warranties) {
-    const claimed = await prisma.warranty.updateMany({ where: { id: w.id, remindedAt: null }, data: { remindedAt: now } });
-    if (claimed.count === 0) continue;
     const userId = w.asset.assignedToId ?? w.asset.customer?.ownerUserId ?? (await firstOwner(w.organizationId));
-    if (!userId) continue;
+    if (!userId) continue; // nobody to tell yet: retried next run instead of being marked reminded
     await createSystemNotification({
       organizationId: w.organizationId,
       userId,
@@ -312,7 +311,10 @@ export async function sendContractAndWarrantyReminders(now = new Date(), days = 
       title: `Warranty for ${w.asset.tag} ${w.asset.name} ends ${w.endDate.toISOString().slice(0, 10)}`,
       body: w.asset.customer ? `Customer: ${w.asset.customer.name}. Offer an extended warranty or AMC.` : undefined,
       data: { assetId: w.asset.id, warrantyId: w.id, href: `/service/assets/${w.asset.id}` },
+      dedupeKey: `warranty-expiring:${w.id}:${w.endDate.toISOString().slice(0, 10)}`,
     });
+    const claimed = await prisma.warranty.updateMany({ where: { id: w.id, remindedAt: null }, data: { remindedAt: now } });
+    if (claimed.count === 0) continue;
     sent += 1;
   }
   return { sent };

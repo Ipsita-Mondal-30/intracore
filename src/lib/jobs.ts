@@ -10,6 +10,11 @@ import { sendLowStockAlerts } from "@/features/inventory/alerts";
 import { remindOverdueInvoices } from "@/features/finance/receivables";
 import { escalateOverdueTickets } from "@/features/service/sla";
 import { expireServiceContracts, sendContractAndWarrantyReminders } from "@/features/service/contracts";
+import { processReminders } from "@/features/notifications/reminders";
+import { dispatchWorkflows } from "@/features/automation/engine";
+import { escalateApprovals } from "@/features/automation/approvals";
+import { startDueCampaigns } from "@/features/marketing/campaigns";
+import { expireLoyaltyPoints } from "@/features/marketing/loyalty";
 
 /**
  * Background jobs. Each is idempotent and safe to run on any schedule; the runner is
@@ -27,6 +32,11 @@ export const JOBS: Record<string, () => Promise<unknown>> = {
   "service-contract-reminders": () => sendContractAndWarrantyReminders(),
   "service-contract-expiry": () => expireServiceContracts(),
   "background-queue": () => processQueue(),
+  reminders: () => processReminders(),
+  "workflow-dispatch": () => dispatchWorkflows(),
+  "approval-escalation": () => escalateApprovals(),
+  "campaign-scheduler": () => startDueCampaigns(),
+  "loyalty-expiry": () => expireLoyaltyPoints(),
 };
 
 export async function runJobs(names: string[]) {

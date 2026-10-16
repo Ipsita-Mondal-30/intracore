@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { updateNotificationPreferencesAction } from "@/features/notifications/actions";
+import { apiFetch, ApiError } from "@/lib/api/client";
 import { useBrowserNotifications } from "@/features/notifications/use-browser-notifications";
 
 type Prefs = {
@@ -13,11 +13,13 @@ type Prefs = {
   followUpReminders: boolean;
   taskNotifications: boolean;
   systemNotifications: boolean;
+  approvalRequests: boolean;
+  reminders: boolean;
   browserNotifications: boolean;
 };
 
-export function NotificationPreferencesForm({ prefs: initial }: { prefs: Prefs }) {
-  const [prefs, setPrefs] = useState(initial);
+export function NotificationPreferencesForm({ prefs: initial }: { prefs: Omit<Prefs, "approvalRequests" | "reminders"> & Partial<Prefs> }) {
+  const [prefs, setPrefs] = useState<Prefs>({ approvalRequests: true, reminders: true, ...initial });
   const [pending, startTransition] = useTransition();
   const { requestPermission } = useBrowserNotifications(true);
 
@@ -26,14 +28,14 @@ export function NotificationPreferencesForm({ prefs: initial }: { prefs: Prefs }
   };
 
   const save = () => {
-    const fd = new FormData();
-    for (const [key, value] of Object.entries(prefs)) {
-      fd.set(key, value ? "true" : "false");
-    }
+    const body = Object.fromEntries(labels.map(({ key }) => [key, prefs[key]]));
     startTransition(async () => {
-      const result = await updateNotificationPreferencesAction(fd);
-      if (result.ok) toast.success("Preferences saved");
-      else toast.error(result.error);
+      try {
+        await apiFetch("/notification-preferences", { method: "PATCH", body: { ...body, browserNotifications: prefs.browserNotifications } });
+        toast.success("Preferences saved");
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : "Failed to save preferences");
+      }
     });
   };
 
@@ -43,6 +45,8 @@ export function NotificationPreferencesForm({ prefs: initial }: { prefs: Prefs }
     { key: "followUpReminders", label: "Follow-up reminders" },
     { key: "taskNotifications", label: "Task notifications" },
     { key: "systemNotifications", label: "System notifications" },
+    { key: "approvalRequests", label: "Approval requests" },
+    { key: "reminders", label: "My reminders" },
   ];
 
   return (

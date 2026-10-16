@@ -794,11 +794,6 @@ export async function remindOverdueInvoices(now = new Date()) {
     if (!outstanding(inv).gt(0)) continue;
     const interval = companySettings(inv.company.settings).receivables.reminderIntervalDays;
     if (inv.lastReminderAt && now.getTime() - inv.lastReminderAt.getTime() < interval * 86_400_000) continue;
-    const claimed = await prisma.salesInvoice.updateMany({
-      where: { id: inv.id, lastReminderAt: inv.lastReminderAt },
-      data: { lastReminderAt: now },
-    });
-    if (claimed.count === 0) continue;
     await createSystemNotification({
       organizationId: inv.organizationId,
       userId: inv.customer.ownerUserId ?? inv.createdById,
@@ -806,7 +801,13 @@ export async function remindOverdueInvoices(now = new Date()) {
       title: `Overdue: ${inv.number} (${inv.customer.name})`,
       body: `${outstanding(inv).toFixed(2)} ${inv.currency} was due ${ymd(inv.dueDate)}`,
       data: { invoiceId: inv.id, href: `/finance/invoices/${inv.id}` },
+      dedupeKey: `invoice-overdue:${inv.id}:${inv.lastReminderAt?.toISOString() ?? "first"}`,
     });
+    const claimed = await prisma.salesInvoice.updateMany({
+      where: { id: inv.id, lastReminderAt: inv.lastReminderAt },
+      data: { lastReminderAt: now },
+    });
+    if (claimed.count === 0) continue;
     sent += 1;
   }
   return { sent };
