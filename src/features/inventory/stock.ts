@@ -259,37 +259,72 @@ export async function reserveSalesOrder(tx: Db, orderId: string) {
   const lines = order.lines.filter((l) => l.product && isStocked(l.product));
   if (lines.length === 0) return [];
   if (!order.warehouseId) throw new AppError("VALIDATION_ERROR", "Choose a warehouse for this order", 422);
-  const warehouseId = order.warehouseId;
-  await lockStock(tx, order.companyId, lines.map((l) => l.productId!));
+  const open = await Promise.all(
+    lines.map(async (l) => ({
+      key: { salesOrderLineId: l.id },
+      productId: l.productId!,
+      open: dec(l.quantity).sub(l.deliveredQty).mul(await baseFactor(tx, l.product!, l.uomId)),
+      current: l.reservation,
+    })),
+  );
+  return (await reserveLines(tx, order, order.warehouseId, open)).map((r) => ({ ...r.result, salesOrderLineId: r.key.salesOrderLineId! }));
+}
 
-  const result: { salesOrderLineId: string; reserved: string; short: string }[] = [];
+/** Reserve open material quantities of a released work order (same rules as sales orders). */
+export async function reserveWorkOrder(tx: Db, workOrderId: string) {
+  const wo = await tx.workOrder.findUniqueOrThrow({
+    where: { id: workOrderId },
+    include: { materials: { include: { product: true, reservation: true } } },
+  });
+  const open = wo.materials
+    .filter((m) => isStocked(m.product))
+    .map((m) => ({
+      key: { workOrderMaterialId: m.id },
+      productId: m.productId,
+      open: Decimal.max(dec(m.requiredQty).sub(m.consumedQty), ZERO),
+      current: m.reservation,
+    }));
+  return (await reserveLines(tx, wo, wo.warehouseId, open)).map((r) => ({ ...r.result, workOrderMaterialId: r.key.workOrderMaterialId! }));
+}
+
+type ReserveKey = { salesOrderLineId?: string; workOrderMaterialId?: string };
+
+/**
+ * Top each line's single reservation row up to its open quantity, as far as stock is
+ * free in the warehouse. Holds the product locks, so concurrent reservations queue.
+ */
+async function reserveLines(
+  tx: Db,
+  scope: { organizationId: string; companyId: string },
+  warehouseId: string,
+  lines: { key: ReserveKey; productId: string; open: Decimal; current: { quantity: Prisma.Decimal } | null }[],
+) {
+  await lockStock(tx, scope.companyId, lines.map((l) => l.productId));
+  const out: { key: ReserveKey; result: { reserved: string; short: string } }[] = [];
   for (const line of lines) {
-    const factor = await baseFactor(tx, line.product!, line.uomId);
-    const open = dec(line.quantity).sub(line.deliveredQty).mul(factor);
-    const current = dec(line.reservation?.quantity);
-    let target = current.gt(open) ? open : current;
-    if (target.lt(open)) {
-      const { onHand, reserved } = await warehouseLevel(tx, warehouseId, line.productId!);
-      const free = Decimal.max(onHand.sub(reserved), ZERO);
-      target = Decimal.min(open, current.add(free));
+    const current = dec(line.current?.quantity);
+    let target = current.gt(line.open) ? line.open : current;
+    if (target.lt(line.open)) {
+      const { onHand, reserved } = await warehouseLevel(tx, warehouseId, line.productId);
+      target = Decimal.min(line.open, current.add(Decimal.max(onHand.sub(reserved), ZERO)));
     }
-    if (!line.reservation || !target.eq(current)) {
+    if (!line.current || !target.eq(current)) {
+      const where = line.key.salesOrderLineId
+        ? { organizationId_salesOrderLineId: { organizationId: scope.organizationId, salesOrderLineId: line.key.salesOrderLineId } }
+        : { organizationId_workOrderMaterialId: { organizationId: scope.organizationId, workOrderMaterialId: line.key.workOrderMaterialId! } };
       await tx.stockReservation.upsert({
-        where: { organizationId_salesOrderLineId: { organizationId: order.organizationId, salesOrderLineId: line.id } },
-        create: {
-          organizationId: order.organizationId,
-          companyId: order.companyId,
-          warehouseId,
-          productId: line.productId!,
-          salesOrderLineId: line.id,
-          quantity: target,
-        },
+        where,
+        create: { organizationId: scope.organizationId, companyId: scope.companyId, warehouseId, productId: line.productId, quantity: target, ...line.key },
         update: { quantity: target, warehouseId },
       });
     }
-    result.push({ salesOrderLineId: line.id, reserved: target.toString(), short: open.sub(target).toString() });
+    out.push({ key: line.key, result: { reserved: target.toString(), short: line.open.sub(target).toString() } });
   }
-  return result;
+  return out;
+}
+
+export async function releaseWorkOrder(tx: Db, workOrderId: string) {
+  await tx.stockReservation.deleteMany({ where: { workOrderMaterial: { workOrderId } } });
 }
 
 export async function releaseSalesOrder(tx: Db, orderId: string) {

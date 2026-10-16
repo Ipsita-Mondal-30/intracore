@@ -34,6 +34,10 @@ const modules = [
   { href: "/inventory/products", label: "Inventory", color: "bg-amber-500" },
   { href: "/purchasing/orders", label: "Purchasing", color: "bg-rose-500" },
   { href: "/finance/invoices", label: "Finance", color: "bg-violet-500" },
+  { href: "/hr/employees", label: "HR", color: "bg-pink-500" },
+  { href: "/projects", label: "Projects", color: "bg-lime-500" },
+  { href: "/service/tickets", label: "Service", color: "bg-cyan-500" },
+  { href: "/manufacturing/work-orders", label: "Manufacturing", color: "bg-orange-600" },
   {
     href: "/settings/organization",
     label: "Organization",
@@ -215,6 +219,54 @@ const sectionNav: { prefix: string; group: NavGroup }[] = [
         { href: "/finance/journals", label: "Journals", icon: GitBranch },
         { href: "/finance/reports", label: "Reports & GST", icon: BarChart3 },
         { href: "/finance/setup", label: "Setup", icon: Settings },
+      ],
+    },
+  },
+  {
+    prefix: "/hr",
+    group: {
+      title: "HR",
+      items: [
+        { href: "/hr/employees", label: "Employees", icon: Users },
+        { href: "/hr/attendance", label: "Attendance", icon: CalendarClock },
+        { href: "/hr/leave", label: "Leave", icon: CalendarClock },
+        { href: "/hr/recruitment", label: "Recruitment", icon: Users },
+        { href: "/hr/performance", label: "Performance", icon: BarChart3 },
+        { href: "/hr/payroll", label: "Payroll", icon: Package },
+        { href: "/hr/settings", label: "HR settings", icon: Settings },
+      ],
+    },
+  },
+  {
+    prefix: "/projects",
+    group: { title: "PROJECTS", items: [{ href: "/projects", label: "Projects", icon: KanbanSquare, exact: true }, { href: "/projects/timesheets", label: "My timesheet", icon: CalendarClock }] },
+  },
+  {
+    prefix: "/service",
+    group: {
+      title: "SERVICE",
+      items: [
+        { href: "/service/tickets", label: "Tickets", icon: ListTodo },
+        { href: "/service/assets", label: "Assets", icon: Package },
+        { href: "/service/contracts", label: "AMC contracts", icon: CheckCircle2 },
+        { href: "/service/schedule", label: "Field schedule", icon: CalendarClock },
+        { href: "/service/installations", label: "Installations", icon: Building2 },
+        { href: "/service/dispatch", label: "Dispatch & POD", icon: Upload },
+        { href: "/service/reports", label: "Service reports", icon: BarChart3 },
+        { href: "/service/settings", label: "SLA & categories", icon: Settings },
+      ],
+    },
+  },
+  {
+    prefix: "/manufacturing",
+    group: {
+      title: "MANUFACTURING",
+      items: [
+        { href: "/manufacturing/work-orders", label: "Work orders", icon: ListTodo },
+        { href: "/manufacturing/boms", label: "Bills of materials", icon: Package },
+        { href: "/manufacturing/mrp", label: "Material planning", icon: BarChart3 },
+        { href: "/manufacturing/quality", label: "Quality", icon: CheckCircle2 },
+        { href: "/manufacturing/suppliers", label: "Supplier quality", icon: Users },
       ],
     },
   },

@@ -119,7 +119,34 @@ export const PERMISSIONS: PermissionSeed[] = [
   ...perms("receipt", "view", "create", "cancel"),
   ...perms("payment", "view", "create", "cancel"),
   ...perms("expense", "view", "create", "approve", "pay"),
+
+  // HR and workforce
+  ...perms("hr", "view", "administer"),
+  ...perms("employee", "view", "create", "update"),
+  ...perms("attendance", "view", "self", "record", "approve"),
+  ...perms("leave", "view", "apply", "approve"),
+  ...perms("recruitment", "view", "manage"),
+  ...perms("performance", "view", "manage"),
+  ...perms("payroll", "view", "run", "approve"),
+
+  // Projects
+  ...perms("project", "view", "create", "update", "delete"),
+
+  // Service, assets and field work
+  ...perms("ticket", "view", "create", "update", "assign"),
+  ...perms("service", "administer"),
+  ...perms("asset", "view", "create", "update"),
+  ...perms("contract", "view", "create", "update"),
+  ...perms("field", "view", "schedule", "update"),
+
+  // Manufacturing and quality
+  ...perms("manufacturing", "view", "create", "release", "produce"),
+  ...perms("quality", "view", "inspect", "manage"),
+  ...perms("supplier", "evaluate"),
 ];
+
+/** Every staff role (not Viewer) can apply for leave, mark own attendance and claim expenses. */
+const SELF_SERVICE = ["leave.apply", "attendance.self", "expense.view", "expense.create"];
 
 /** Every `module.action` code of the given modules (optionally only some actions). */
 function codes(modules: string[], actions?: string[]) {
@@ -364,6 +391,48 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
     ],
   },
   {
+    code: "hr_manager",
+    name: "HR Manager",
+    description: "Employees, attendance, leave, recruitment, performance and payroll",
+    permissions: ["org.view", "dashboard.view", "company.view", "task.create", "task.view_all", "document.view", "document.create",
+      ...codes(["hr", "employee", "attendance", "leave", "recruitment", "performance", "payroll"])],
+  },
+  {
+    code: "project_manager",
+    name: "Project Manager",
+    description: "Projects, milestones, tasks and timesheets",
+    permissions: ["org.view", "dashboard.view", "company.view", "task.create", "document.view", "document.create", "customer.view", ...codes(["project"])],
+  },
+  {
+    code: "service_manager",
+    name: "Service Manager",
+    description: "Tickets, SLAs, assets, warranties, AMCs and field work",
+    permissions: ["org.view", "dashboard.view", "company.view", "task.create", "task.view_all", "document.view", "document.create",
+      "customer.view", "contact.view", "product.view", "quotation.create", "quotation.view",
+      ...codes(["ticket", "service", "asset", "contract", "field"])],
+  },
+  {
+    code: "technician",
+    name: "Service Technician",
+    description: "Assigned tickets, visits and installation jobs",
+    permissions: ["org.view", "company.view", "document.view", "document.create", "customer.view", "asset.view",
+      "ticket.view", "ticket.update", "field.view", "field.update"],
+  },
+  {
+    code: "production_manager",
+    name: "Production Manager",
+    description: "Bills of materials, work orders and production",
+    permissions: ["org.view", "dashboard.view", "company.view", "task.create", "document.view", "document.create",
+      "product.view", ...codes(["manufacturing"]), ...codes(["inventory"], ["view", "create", "post"]), "quality.view", "quality.inspect"],
+  },
+  {
+    code: "quality_manager",
+    name: "Quality Manager",
+    description: "Inspections, non-conformances and supplier qualification",
+    permissions: ["org.view", "dashboard.view", "company.view", "task.create", "task.view_all", "document.view", "document.create",
+      "product.view", "vendor.view", "purchase_order.view", "inventory.view", "manufacturing.view", ...codes(["quality", "supplier"])],
+  },
+  {
     code: "viewer",
     name: "Viewer",
     description: "Read-only access",
@@ -379,5 +448,5 @@ export function systemRolePermissions(roleCode: string): string[] {
   if (!template) return [];
   if (template.permissions === "*") return ALL_CODES;
   if (typeof template.permissions === "function") return template.permissions(ALL_CODES);
-  return template.permissions;
+  return [...new Set([...template.permissions, ...(roleCode === "viewer" ? [] : SELF_SERVICE)])];
 }

@@ -41,10 +41,12 @@ const NUMBERING: Record<StockEntryType, string> = {
   DELIVERY: "delivery",
   SALES_RETURN: "sales_return",
   PURCHASE_RETURN: "purchase_return",
+  PRODUCTION_ISSUE: "stock_entry",
+  PRODUCTION_RECEIPT: "stock_entry",
 };
 
-const INBOUND: StockEntryType[] = [T.OPENING, T.RECEIPT, T.GOODS_RECEIPT, T.SALES_RETURN];
-const OUTBOUND: StockEntryType[] = [T.ISSUE, T.DELIVERY, T.PURCHASE_RETURN];
+const INBOUND: StockEntryType[] = [T.OPENING, T.RECEIPT, T.GOODS_RECEIPT, T.SALES_RETURN, T.PRODUCTION_RECEIPT];
+const OUTBOUND: StockEntryType[] = [T.ISSUE, T.DELIVERY, T.PURCHASE_RETURN, T.PRODUCTION_ISSUE];
 
 // ─── Manual entries: opening stock, receipts, issues, adjustments, transfers ──
 
@@ -153,10 +155,20 @@ type NewEntry = {
   vendorId?: string | null;
   customerId?: string | null;
   returnOfId?: string | null;
+  workOrderId?: string | null;
   reference?: string | null;
   notes?: string | null;
   lines: Omit<Prisma.StockEntryLineUncheckedCreateWithoutEntryInput, "organizationId">[];
 };
+
+/**
+ * Create and post a stock entry inside the caller's transaction (manufacturing uses this
+ * for PRODUCTION_ISSUE / PRODUCTION_RECEIPT so a production step is one atomic unit).
+ */
+export async function createAndPostEntry(tx: Db, ctx: AccessContext, data: NewEntry) {
+  const entry = await createEntry(tx, ctx, data);
+  return postEntryInTx(tx, ctx, entry.id);
+}
 
 async function createEntry(tx: Db, ctx: AccessContext, data: NewEntry) {
   const { lines, ...header } = data;
@@ -304,6 +316,22 @@ async function applyDocumentEffects(tx: Db, entry: StockEntry, lines: LoadedLine
         const consume = Decimal.min(dec(so.reservation.quantity), new Decimal(line.baseQuantity));
         await tx.stockReservation.update({ where: { id: so.reservation.id }, data: { quantity: dec(so.reservation.quantity).sub(consume) } });
       }
+    }
+    if (entry.type === T.PRODUCTION_ISSUE && entry.workOrderId) {
+      const material = await tx.workOrderMaterial.findFirst({
+        where: { workOrderId: entry.workOrderId, productId: line.productId },
+        include: { reservation: true },
+      });
+      if (!material) throw new AppError("INVALID_REFERENCE", `${line.product.sku} is not a material of this work order`, 422);
+      const base = new Decimal(line.baseQuantity).mul(sign);
+      await tx.workOrderMaterial.update({ where: { id: material.id }, data: { consumedQty: { increment: base } } });
+      if (sign === 1 && material.reservation) {
+        const consume = Decimal.min(dec(material.reservation.quantity), new Decimal(line.baseQuantity));
+        await tx.stockReservation.update({ where: { id: material.reservation.id }, data: { quantity: dec(material.reservation.quantity).sub(consume) } });
+      }
+    }
+    if (entry.type === T.PRODUCTION_RECEIPT && entry.workOrderId) {
+      await tx.workOrder.update({ where: { id: entry.workOrderId }, data: { producedQty: { increment: new Decimal(line.baseQuantity).mul(sign) } } });
     }
     if ((entry.type === T.SALES_RETURN || entry.type === T.PURCHASE_RETURN) && line.returnOfLineId) {
       const original = await tx.stockEntryLine.findUniqueOrThrow({ where: { id: line.returnOfLineId } });

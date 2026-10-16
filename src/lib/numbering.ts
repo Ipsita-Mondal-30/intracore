@@ -22,6 +22,12 @@ export const DOCUMENT_PREFIXES: Record<string, string> = {
   journal: "JV/{FY}/",
   expense_claim: "EXP/{FY}/",
   transfer: "TRF/{FY}/",
+  employee: "EMP-",
+  ticket: "TKT-",
+  service_contract: "AMC-",
+  installation: "INS-",
+  work_order: "WO-",
+  nonconformance: "NCR-",
 };
 
 /** "26-27" for a date in the fiscal year starting in `startMonth` (1-12) of 2026. */

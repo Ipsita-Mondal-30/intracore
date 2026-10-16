@@ -11,6 +11,7 @@ import { approveVendorBill, cancelVendorBill, createVendorBill, postVendorBill }
 import { createStockEntry, deliverSalesOrder, receivePurchaseOrder } from "@/features/inventory/entries";
 import { confirmSalesOrder, createSalesOrder } from "@/features/sales/orders";
 import { addTaxRateVersion, listFiscalYears, setPeriodStatus, setupFinance } from "@/features/finance/setup";
+import { MAPPING_KEYS } from "@/features/finance/ledger";
 import {
   allocateCredit,
   cancelInvoice,
@@ -107,7 +108,7 @@ describe("setup", () => {
     expect(years).toHaveLength(1);
     expect(years[0].periods).toHaveLength(12);
     expect(years[0].periods.every((p) => p.status === "OPEN")).toBe(true);
-    expect(await prisma.accountMapping.count({ where: { companyId: a.company.id } })).toBe(18);
+    expect(await prisma.accountMapping.count({ where: { companyId: a.company.id } })).toBe(Object.keys(MAPPING_KEYS).length);
     await expect(setupFinance(owner, a.company.id, { accountingStartDate: fyStart })).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 });
