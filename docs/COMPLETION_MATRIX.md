@@ -97,10 +97,9 @@ State of the `erp/foundation` branch at the end of Phase 7. Status meanings:
 
 1. **Database migrations:** run `prisma migrate deploy` against production as a release step, after taking a backup. The build does not migrate.
 2. **Storage buckets:** apply `supabase/migrations/20261016100000_private_buckets.sql`.
-3. **Scheduled jobs:** set `CRON_SECRET` and schedule `/api/v1/jobs/run`:
-   - every minute: `background-queue`, `workflow-dispatch`, `reminders`, `campaign-scheduler`;
-   - every 15 minutes: `ticket-escalation`, `approval-escalation`;
-   - daily: the remaining jobs (see [API.md](API.md)).
+3. **Scheduled jobs:** set `CRON_SECRET` in Vercel. `vercel.json` runs every job once a day (the
+   Hobby-plan limit). The every-minute and every-15-minute jobs run from Supabase `pg_cron`:
+   run `supabase/cron/schedule-jobs.sql` once in the Supabase SQL editor.
 4. **Professional review:** have an accountant review the finance posting rules and GST. Payroll must not be used for statutory compliance.
 5. **Providers:** configure WhatsApp, email and e-signature providers in Settings → Integrations, then test each against a sandbox account.
 6. **Browser check:** with a real Supabase login, click through every module and each portal.
