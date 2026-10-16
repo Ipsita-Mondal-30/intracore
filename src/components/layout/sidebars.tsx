@@ -131,7 +131,7 @@ export function ModuleRail() {
 
   return (
     <aside
-      className="sticky top-4 mr-2 flex h-[calc(100vh-2rem)] w-[76px] shrink-0 flex-col items-center self-start rounded-2xl border border-[var(--ic-border)] bg-white py-3 shadow-card"
+      className="sticky top-4 mr-2 flex h-[calc(100vh-2rem)] w-[76px] shrink-0 flex-col items-center self-start rounded-2xl border border-[var(--ic-border)] bg-surface py-3 shadow-card"
       aria-label="Modules"
     >
       <Link
@@ -168,7 +168,7 @@ export function ModuleRail() {
               setTip({ title: "Sign out", hint: "End your session on this device", top: r.top + r.height / 2, left: r.right + 10 });
             }}
             onMouseLeave={() => setTip(null)}
-            className="mx-auto flex w-[60px] flex-col items-center gap-1 rounded-xl px-1 py-[5px] text-[var(--ic-foreground)]/70 transition hover:bg-red-50 hover:text-danger focus-visible:ring-2 focus-visible:ring-danger/50 outline-none"
+            className="mx-auto flex w-[60px] flex-col items-center gap-1 rounded-xl px-1 py-[5px] text-[var(--ic-foreground)]/70 transition hover:bg-danger-soft hover:text-danger focus-visible:ring-2 focus-visible:ring-danger/50 outline-none"
           >
             <LogOut className="h-[19px] w-[19px]" />
             <span className="text-[10.5px] font-medium leading-none">Sign out</span>
@@ -182,10 +182,10 @@ export function ModuleRail() {
         ? createPortal(
             <div
               role="tooltip"
-              className="pointer-events-none fixed z-[1000] max-w-[260px] -translate-y-1/2 rounded-lg bg-[#1f2937] px-3 py-2 text-white shadow-xl ring-1 ring-black/10"
+              className="pointer-events-none fixed z-[1000] max-w-[260px] -translate-y-1/2 rounded-lg bg-[var(--ic-tooltip)] px-3 py-2 text-white shadow-xl ring-1 ring-black/10 dark:ring-white/10"
               style={{ top: tip.top, left: tip.left }}
             >
-              <span className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-[#1f2937]" aria-hidden />
+              <span className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-[var(--ic-tooltip)]" aria-hidden />
               <p className="text-xs font-semibold">{tip.title}</p>
               <p className="mt-0.5 text-[11px] leading-snug text-gray-300">{tip.hint}</p>
             </div>,
@@ -473,7 +473,7 @@ export function AppSidebar({
                   "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
                   pathname === "/dashboard"
                     ? "bg-nav-active font-medium text-white shadow-sm"
-                    : "text-muted hover:bg-white/70 hover:text-foreground",
+                    : "text-muted hover:bg-surface hover:text-foreground",
                 )}
               >
                 <LayoutDashboard className="h-4 w-4 shrink-0 opacity-80" />
@@ -489,7 +489,7 @@ export function AppSidebar({
                   "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
                   pathname.startsWith("/leads/tasks")
                     ? "bg-nav-active font-medium text-white shadow-sm"
-                    : "text-muted hover:bg-white/70 hover:text-foreground",
+                    : "text-muted hover:bg-surface hover:text-foreground",
                 )}
               >
                 <ListTodo className="h-4 w-4 shrink-0 opacity-80" />
@@ -503,7 +503,7 @@ export function AppSidebar({
                   "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
                   pathname.startsWith("/leads/import")
                     ? "bg-nav-active font-medium text-white shadow-sm"
-                    : "text-muted hover:bg-white/70 hover:text-foreground",
+                    : "text-muted hover:bg-surface hover:text-foreground",
                 )}
               >
                 <Upload className="h-4 w-4 shrink-0 opacity-80" />
@@ -534,7 +534,7 @@ export function AppSidebar({
                         "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
                         active
                           ? "bg-nav-active font-medium text-white shadow-sm"
-                          : "text-muted hover:bg-white/70 hover:text-foreground",
+                          : "text-muted hover:bg-surface hover:text-foreground",
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0 opacity-80" />
@@ -568,7 +568,7 @@ export function AppSidebar({
                             "flex items-center gap-2.5 rounded-pill px-3 py-2.5 text-sm transition",
                             active
                               ? "bg-nav-active font-medium text-white shadow-sm"
-                              : "text-muted hover:bg-white/70 hover:text-foreground",
+                              : "text-muted hover:bg-surface hover:text-foreground",
                           )}
                         >
                           <Icon className="h-4 w-4 shrink-0 opacity-80" />

@@ -43,7 +43,7 @@ export default async function IntegrationsSettingsPage() {
               <p className="text-muted">
                 Channel: {i.channel ? humanize(i.channel) : "E-signature"} · Last check: {formatDateTime(i.lastCheckedAt)}
               </p>
-              {i.lastError ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">{i.lastError}</p> : null}
+              {i.lastError ? <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">{i.lastError}</p> : null}
               {i.webhookPath ? (
                 <p className="text-xs text-muted">
                   Webhook callback URL (Meta → WhatsApp → Configuration): <code className="break-all">{site}{i.webhookPath}</code>. Use the verify token saved below and subscribe to the <code>messages</code> field.

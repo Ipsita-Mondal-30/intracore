@@ -80,7 +80,7 @@ export function ApiForm({
     <form onSubmit={onSubmit} className={cn("space-y-3", className)}>
       {children}
       {Object.keys(errors).length > 0 ? (
-        <ul className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">
+        <ul className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
           {Object.entries(errors).map(([field, message]) => (
             <li key={field}>
               {field ? <strong>{field}: </strong> : null}

@@ -27,7 +27,7 @@ export function DashboardCharts({
               return (
                 <g key={row.label}>
                   <circle cx={x} cy={y} r="3" fill="currentColor" />
-                  <circle cx={x} cy={y2} r="3" fill="#16a34a" />
+                  <circle cx={x} cy={y2} r="3" className="fill-[var(--ic-success-text)]" />
                   {i > 0 ? (
                     <>
                       <line
@@ -43,7 +43,7 @@ export function DashboardCharts({
                         y1={160 - (overTime[i - 1].converted / max) * 130}
                         x2={x}
                         y2={y2}
-                        stroke="#16a34a"
+                        className="stroke-[var(--ic-success-text)]"
                         strokeWidth="2"
                       />
                     </>

@@ -85,7 +85,7 @@ export default async function StockEntryPage({ params }: { params: Promise<{ id:
             <CardHeader><CardTitle>Details</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {entry.status === "CANCELLED" ? (
-                <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">
+                <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">
                   Cancelled {formatDate(entry.cancelledAt)}{entry.cancelReason ? `: “${entry.cancelReason}”` : ""}
                 </p>
               ) : null}

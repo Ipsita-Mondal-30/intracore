@@ -38,7 +38,7 @@ export function CallRecordingPlayer({
   }, [leadId, callRecordId]);
 
   if (error) {
-    return <span className="text-xs text-red-600">{error}</span>;
+    return <span className="text-xs text-danger">{error}</span>;
   }
   if (!src) {
     return <span className="text-xs text-muted">Loading audio…</span>;

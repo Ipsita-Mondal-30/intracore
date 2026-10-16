@@ -88,7 +88,7 @@ function Section({ title, aside, children }: { title: string; aside?: ReactNode;
 }
 
 function ErrorNote({ error }: { error: string }) {
-  return <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>;
+  return <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>;
 }
 
 function Check({ ok, yes, no }: { ok: boolean; yes: string; no: string }) {
@@ -160,7 +160,7 @@ export default async function FinanceReportsPage({ searchParams }: Props) {
       />
 
       {!finance.enabled && report !== "gstr1" && report !== "gstr3b" ? (
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-warning">
+        <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
           Finance is not set up for {company.name}, so there are no journals yet. <Link href={`/finance/setup?companyId=${company.id}`} className="underline">Set it up</Link>.
         </p>
       ) : null}
@@ -409,7 +409,7 @@ const taxCells = (t: { taxable: string; igst: string; cgst: string; sgst: string
 const taxHead: [string, "num"][] = [["Taxable", "num"], ["IGST", "num"], ["CGST", "num"], ["SGST", "num"]];
 
 function Disclaimer({ text }: { text: string }) {
-  return <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-warning">{text}</p>;
+  return <p className="rounded-xl border border-warning-border bg-warning-soft px-3 py-2 text-sm font-medium text-warning">{text}</p>;
 }
 
 async function GstReport({ ctx, companyId, params, report, kind, gstins }: ReportProps & { kind: "gstr1" | "gstr3b"; gstins: string[] }) {
@@ -474,7 +474,7 @@ async function GstReport({ ctx, companyId, params, report, kind, gstins }: Repor
         {form}
         <p className="text-sm text-muted">{d.gstin}{d.state ? ` · ${d.state}` : ""} · {formatDate(d.period.from)} – {formatDate(d.period.to)}</p>
         {d.warnings.length ? (
-          <ul className="list-disc space-y-1 rounded-xl bg-red-50 py-2 pl-7 pr-3 text-sm text-danger">
+          <ul className="list-disc space-y-1 rounded-xl bg-danger-soft py-2 pl-7 pr-3 text-sm text-danger">
             {d.warnings.map((w) => <li key={w}>{w}</li>)}
           </ul>
         ) : null}
