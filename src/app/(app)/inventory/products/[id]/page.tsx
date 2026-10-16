@@ -1,7 +1,11 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db/prisma";
 import { isAppError } from "@/lib/errors";
 import { can, getAccessContext } from "@/lib/access";
 import { getProduct, listCatalogLookups } from "@/features/catalog/service";
+import { getStockLevels } from "@/features/inventory/stock";
+import { ConversionsInput } from "@/features/inventory/json-inputs";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,7 +25,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     throw e;
   });
   const canEdit = can(ctx, "product.update");
-  const lookups = canEdit ? await listCatalogLookups(ctx) : null;
+  const [lookups, stock, conversions] = await Promise.all([
+    canEdit ? listCatalogLookups(ctx) : null,
+    can(ctx, "inventory.view") && product.type === "GOODS" ? getStockLevels(ctx, { productId: id }) : null,
+    prisma.uomConversion.findMany({ where: { productId: id, organizationId: ctx.organizationId }, include: { uom: true }, orderBy: { factor: "asc" } }),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -84,6 +92,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   </Field>
                   <Field label="Sales price"><Input name="salesPrice" inputMode="decimal" defaultValue={product.salesPrice.toString()} /></Field>
                   <Field label="Purchase price"><Input name="purchasePrice" inputMode="decimal" defaultValue={product.purchasePrice.toString()} /></Field>
+                  <Field label="Tracking">
+                    <Select name="trackingMode" defaultValue={product.trackingMode}>
+                      <option value="NONE">No lots</option>
+                      <option value="BATCH">Batch / lot</option>
+                      <option value="SERIAL">Serial number</option>
+                    </Select>
+                  </Field>
+                  <Field label="Reorder level" hint="Available at or below this suggests a reorder"><Input name="reorderLevel" inputMode="decimal" defaultValue={product.reorderLevel?.toString() ?? ""} data-nullable /></Field>
+                  <Field label="Reorder quantity" hint="Blank orders up to the level"><Input name="reorderQty" inputMode="decimal" defaultValue={product.reorderQty?.toString() ?? ""} data-nullable /></Field>
+                  <div className="flex flex-wrap gap-4 text-sm sm:col-span-3">
+                    <label className="flex items-center gap-2"><input type="checkbox" name="trackInventory" defaultChecked={product.trackInventory} /> Track stock</label>
+                    <label className="flex items-center gap-2"><input type="checkbox" name="hasExpiry" defaultChecked={product.hasExpiry} /> Has expiry dates</label>
+                  </div>
                   <Field label="Description" className="sm:col-span-3"><Textarea name="description" rows={3} defaultValue={product.description ?? ""} data-nullable /></Field>
                 </ApiForm>
               ) : (
@@ -94,6 +115,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   <div><dt className="text-subtle">Barcode</dt><dd>{product.barcode ?? "—"}</dd></div>
                   <div><dt className="text-subtle">Sales price</dt><dd>{formatMoney(product.salesPrice)}</dd></div>
                   <div><dt className="text-subtle">Purchase price</dt><dd>{formatMoney(product.purchasePrice)}</dd></div>
+                  <div><dt className="text-subtle">Stock tracking</dt><dd>{product.trackInventory ? humanize(product.trackingMode === "NONE" ? "TRACKED" : product.trackingMode) : "Not tracked"}{product.hasExpiry ? " · expiry" : ""}</dd></div>
+                  <div><dt className="text-subtle">Reorder level / qty</dt><dd>{formatQty(product.reorderLevel)} / {formatQty(product.reorderQty)}</dd></div>
                   <div className="sm:col-span-2"><dt className="text-subtle">Description</dt><dd className="whitespace-pre-line">{product.description ?? "—"}</dd></div>
                 </dl>
               )}
@@ -102,6 +125,52 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="space-y-4">
+          {stock ? (
+            <Card>
+              <CardHeader><CardTitle>Stock</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {stock.length ? (
+                  <table className="w-full">
+                    <thead className="text-left text-2xs uppercase tracking-wide text-subtle">
+                      <tr><th className="py-1 pr-2">Warehouse</th><th className="py-1 pr-2 text-right">On hand</th><th className="py-1 pr-2 text-right">Reserved</th><th className="py-1 text-right">Available</th></tr>
+                    </thead>
+                    <tbody>
+                      {stock.map((s) => (
+                        <tr key={s.warehouse.id} className="border-t border-[var(--ic-border)]">
+                          <td className="py-1 pr-2">{s.warehouse.code}</td>
+                          <td className="py-1 pr-2 text-right">{formatQty(s.onHand)}</td>
+                          <td className="py-1 pr-2 text-right">{formatQty(s.reserved)}</td>
+                          <td className={`py-1 text-right font-medium ${Number(s.available) <= 0 ? "text-danger" : ""}`}>{formatQty(s.available)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : <p className="text-muted">No stock recorded.</p>}
+                <Link href="/inventory/stock" className="text-primary hover:underline">All stock levels</Link>
+              </CardContent>
+            </Card>
+          ) : null}
+          {lookups || conversions.length ? (
+            <Card>
+              <CardHeader><CardTitle>Unit conversions</CardTitle></CardHeader>
+              <CardContent className="text-sm">
+                {lookups ? (
+                  <ApiForm path={`/products/${id}/uom-conversions`} method="PUT" submitLabel="Save conversions" successMessage="Conversions saved">
+                    <ConversionsInput
+                      initial={conversions.map((c) => ({ uomId: c.uomId, factor: c.factor.toString() }))}
+                      uoms={lookups.uoms.filter((u) => u.id !== product.uomId).map((u) => ({ id: u.id, code: u.code }))}
+                      baseUom={product.uom.code}
+                    />
+                    <p className="text-2xs text-subtle">Clear a factor to remove that unit.</p>
+                  </ApiForm>
+                ) : (
+                  <ul className="space-y-0.5">
+                    {conversions.map((c) => <li key={c.id}>1 {c.uom.code} = {formatQty(c.factor)} {product.uom.code}</li>)}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
           <Card>
             <CardHeader><CardTitle>History</CardTitle></CardHeader>
             <CardContent><AuditTrail ctx={ctx} entity="product" entityId={id} /></CardContent>

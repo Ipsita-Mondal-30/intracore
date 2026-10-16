@@ -112,3 +112,51 @@ Each line is rounded half-up to 2 dp.
 Jobs added: `quotation-expiry` (APPROVED/SENT past valid-until → EXPIRED).
 
 Printable documents: `/print/quotations/:id`, `/print/orders/:id` (browser print / save as PDF).
+
+## Inventory (Phase 3)
+
+Stock lifecycle, valuation and sample requests: [docs/INVENTORY.md](INVENTORY.md).
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET / POST (idem) | `/warehouses` | `inventory.view` / `inventory.administer` | Each warehouse gets a default `STOCK` location; every company gets a `MAIN` warehouse |
+| PATCH | `/warehouses/:id` | `inventory.administer` | Cannot deactivate while it holds stock |
+| POST (idem) | `/warehouses/:id/locations` | `inventory.administer` | |
+| PUT | `/products/:id/uom-conversions` | `product.update` | `{ conversions: [{ uomId, factor }] }` |
+| GET | `/stock/levels` | `inventory.view` | `companyId, warehouseId, productId, lowOnly` → on hand / reserved / available |
+| GET | `/stock/reorder-suggestions?companyId=` | `inventory.view` | Net of open purchase orders |
+| POST | `/stock/reconcile` | `inventory.administer` | `{ companyId, fix? }` — compare/rebuild caches from the ledger |
+| GET / POST (idem) | `/stock-entries` | `inventory.view` / `inventory.create` (+ `inventory.post` with `post: true`) | OPENING, RECEIPT, ISSUE, ADJUSTMENT, TRANSFER |
+| GET | `/stock-entries/:id` | `inventory.view` | Lines, ledger moves, linked documents |
+| POST (idem) | `/stock-entries/:id/post` | `inventory.post` | Retry-safe |
+| POST (idem) | `/stock-entries/:id/cancel` | `inventory.post` | `{ reason }`; posted entries are reversed |
+| POST (idem) | `/stock-entries/:id/return` | `inventory.create` (+ `inventory.post`) | Posted DELIVERY → SALES_RETURN, posted GOODS_RECEIPT → PURCHASE_RETURN |
+| POST (idem) | `/sales-orders/:id/reserve` | `sales_order.update` | Top up reservations (idempotent) |
+| POST (idem) | `/sales-orders/:id/deliver` | `inventory.create` + `inventory.post` | `{ lines: [{ salesOrderLineId, quantity, lotNumber? }] }` |
+
+Sales orders now take `warehouseId` (defaults to the branch's warehouse, or the company's
+only warehouse). `confirm` reserves stock and returns `reservations: [{ salesOrderLineId,
+reserved, short }]`; amendments re-reserve; `cancel` releases.
+
+## Purchasing (Phase 3)
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET / POST (idem) | `/vendors` | `vendor.view` / `vendor.create` | GSTIN unique per organization |
+| GET / PATCH | `/vendors/:id` | `vendor.view` / `vendor.update` (`vendor.delete` to archive) | |
+| GET / POST (idem) | `/purchase-orders` | `purchase_order.view` / `purchase_order.create` | Lines need a product; priced at purchase price; CGST+SGST vs IGST by branch vs supplier state |
+| GET / PATCH | `/purchase-orders/:id` | `purchase_order.view` / `purchase_order.update` | PATCH while DRAFT |
+| POST (idem) | `/purchase-orders/:id/submit` | `purchase_order.update` | → PENDING_APPROVAL above `settings.purchase.approvalAmount`, else APPROVED |
+| POST (idem) | `/purchase-orders/:id/approve` · `/return` | `purchase_order.approve` | Creator cannot approve; return needs `{ note }` |
+| POST (idem) | `/purchase-orders/:id/cancel` | `purchase_order.cancel` | `{ reason }`; not after goods were received (close instead) |
+| POST (idem) | `/purchase-orders/:id/close` | `purchase_order.update` | Short-close a partially received order |
+| POST (idem) | `/purchase-orders/:id/receive` | `inventory.create` + `inventory.post` | `{ lines: [{ purchaseOrderLineId, quantity, lotNumber?, expiryDate? }] }` — goods receipt; the only way a PO adds stock |
+| GET / POST (idem) | `/vendor-bills` | `vendor_bill.view` / `vendor_bill.create` | Lines may link `purchaseOrderLineId` (defaults price/tax from the PO); vendor invoice number unique per vendor |
+| GET | `/vendor-bills/:id` | `vendor_bill.view` | |
+| POST (idem) | `/vendor-bills/:id/post` | `vendor_bill.post` | Three-way match: billed ≤ received − returned |
+| POST (idem) | `/vendor-bills/:id/cancel` | `vendor_bill.cancel` | `{ reason }`; un-bills the PO quantities |
+
+Jobs added: `low-stock-alerts`.
+
+New system roles: **Inventory Manager**, **Purchase Manager** (created for existing
+organizations by migration `20261016120000_inventory_and_purchasing`).

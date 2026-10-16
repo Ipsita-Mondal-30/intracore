@@ -55,6 +55,11 @@ model User {
   createdQuotations   Quotation[]               @relation("QuotationCreator")
   approvedQuotations  Quotation[]               @relation("QuotationApprover")
   createdSalesOrders  SalesOrder[]              @relation("SalesOrderCreator")
+  createdStockEntries StockEntry[]              @relation("StockEntryCreator")
+  createdVendors      Vendor[]                  @relation("VendorCreator")
+  createdPurchaseOrders PurchaseOrder[]         @relation("PurchaseOrderCreator")
+  approvedPurchaseOrders PurchaseOrder[]        @relation("PurchaseOrderApprover")
+  createdVendorBills  VendorBill[]              @relation("VendorBillCreator")
 
   @@map("users")
 }
@@ -134,6 +139,21 @@ model Organization {
   quotationLines QuotationLine[]
   salesOrders   SalesOrder[]
   salesOrderLines SalesOrderLine[]
+  uomConversions UomConversion[]
+  warehouses    Warehouse[]
+  storageLocations StorageLocation[]
+  stockLots     StockLot[]
+  stockEntries  StockEntry[]
+  stockEntryLines StockEntryLine[]
+  stockMoves    StockMove[]
+  stockBalances StockBalance[]
+  stockValuations StockValuation[]
+  stockReservations StockReservation[]
+  vendors       Vendor[]
+  purchaseOrders PurchaseOrder[]
+  purchaseOrderLines PurchaseOrderLine[]
+  vendorBills   VendorBill[]
+  vendorBillLines VendorBillLine[]
 
   @@map("organizations")
 }
@@ -1083,6 +1103,11 @@ model Company {
   numberSequences NumberSequence[]
   quotations      Quotation[]
   salesOrders     SalesOrder[]
+  warehouses      Warehouse[]
+  stockEntries    StockEntry[]
+  stockValuations StockValuation[]
+  purchaseOrders  PurchaseOrder[]
+  vendorBills     VendorBill[]
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -1107,6 +1132,10 @@ model Branch {
   memberScopes MemberScope[]
   quotations   Quotation[]
   salesOrders  SalesOrder[]
+  warehouses   Warehouse[]
+  stockEntries StockEntry[]
+  purchaseOrders PurchaseOrder[]
+  vendorBills  VendorBill[]
 
   @@unique([companyId, code])
   @@unique([organizationId, id])
@@ -1283,6 +1312,7 @@ model Customer {
   prices         CustomerPrice[]
   quotations     Quotation[]
   salesOrders    SalesOrder[]
+  stockEntries   StockEntry[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, code])
@@ -1297,6 +1327,7 @@ model Contact {
   id             String       @id @default(cuid())
   organizationId String
   customerId     String?
+  vendorId       String?
   firstName      String
   lastName       String?
   fullName       String
@@ -1312,6 +1343,7 @@ model Contact {
 
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customer       Customer?     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  vendor         Vendor?       @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
   createdBy      User          @relation("ContactCreator", fields: [createdById], references: [id], onDelete: Restrict)
   opportunities  Opportunity[]
   activities     Activity[]
@@ -1321,6 +1353,7 @@ model Contact {
 
   @@unique([organizationId, id])
   @@index([organizationId, customerId])
+  @@index([organizationId, vendorId])
   @@index([organizationId, email])
   @@index([organizationId, phone])
   @@map("contacts")
@@ -1412,6 +1445,9 @@ model Uom {
   products       Product[]
   quotationLines QuotationLine[]
   salesOrderLines SalesOrderLine[]
+  conversions    UomConversion[]
+  stockEntryLines StockEntryLine[]
+  purchaseOrderLines PurchaseOrderLine[]
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -1450,6 +1486,8 @@ model TaxRate {
   products        Product[]
   quotationLines  QuotationLine[]
   salesOrderLines SalesOrderLine[]
+  purchaseOrderLines PurchaseOrderLine[]
+  vendorBillLines VendorBillLine[]
 
   @@unique([organizationId, name])
   @@unique([organizationId, id])
@@ -1472,6 +1510,13 @@ model Product {
   salesPrice     Decimal      @default(0) @db.Decimal(18, 2)
   purchasePrice  Decimal      @default(0) @db.Decimal(18, 2)
   status         RecordStatus @default(ACTIVE)
+  /// Goods with stock tracking post stock moves; services and non-stock goods do not.
+  trackInventory Boolean      @default(true)
+  trackingMode   TrackingMode @default(NONE)
+  hasExpiry      Boolean      @default(false)
+  /// Company-wide available quantity at or below which a reorder is suggested
+  reorderLevel   Decimal?     @db.Decimal(18, 4)
+  reorderQty     Decimal?     @db.Decimal(18, 4)
   createdById    String       @db.Uuid
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -1484,6 +1529,15 @@ model Product {
   customerPrices  CustomerPrice[]
   quotationLines  QuotationLine[]
   salesOrderLines SalesOrderLine[]
+  uomConversions  UomConversion[]
+  lots            StockLot[]
+  stockEntryLines StockEntryLine[]
+  stockMoves      StockMove[]
+  stockBalances   StockBalance[]
+  stockValuations StockValuation[]
+  reservations    StockReservation[]
+  purchaseOrderLines PurchaseOrderLine[]
+  vendorBillLines VendorBillLine[]
 
   @@unique([organizationId, sku])
   @@unique([organizationId, barcode])
@@ -1635,6 +1689,8 @@ model SalesOrder {
   quotationId          String?
   customerId           String
   contactId            String?
+  /// Warehouse that reserves and ships the goods (required to confirm)
+  warehouseId          String?
   status               SalesOrderStatus @default(DRAFT)
   orderDate            DateTime         @default(now()) @db.Date
   expectedDeliveryDate DateTime?        @db.Date
@@ -1664,7 +1720,9 @@ model SalesOrder {
   customer     Customer         @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
   contact      Contact?         @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: NoAction)
   createdBy    User             @relation("SalesOrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  warehouse    Warehouse?       @relation(fields: [organizationId, companyId, warehouseId], references: [organizationId, companyId, id], onDelete: NoAction)
   lines        SalesOrderLine[]
+  stockEntries StockEntry[]
 
   @@unique([companyId, number])
   /// One sales order per quotation (retry-safe quote-to-order conversion)
@@ -1698,9 +1756,12 @@ model SalesOrderLine {
   taxAmount       Decimal  @db.Decimal(18, 2)
   lineTotal       Decimal  @db.Decimal(18, 2)
   deliveredQty    Decimal  @default(0) @db.Decimal(18, 4)
+  returnedQty     Decimal  @default(0) @db.Decimal(18, 4)
 
   organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesOrder    SalesOrder     @relation(fields: [organizationId, salesOrderId], references: [organizationId, id], onDelete: Cascade)
+  reservation   StockReservation?
+  stockEntryLines StockEntryLine[]
   quotationLine QuotationLine? @relation(fields: [organizationId, quotationLineId], references: [organizationId, id], onDelete: NoAction)
   product       Product?       @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
   uom           Uom?           @relation(fields: [organizationId, uomId], references: [organizationId, id], onDelete: NoAction)
@@ -1711,3 +1772,532 @@ model SalesOrderLine {
   @@map("sales_order_lines")
 }
 
+// ─── Inventory: warehouses, lots, stock ledger ───────────────────────────────
+//
+// StockMove is the append-only ledger and the source of truth. StockBalance and
+// StockValuation are caches maintained in the same transaction as the moves (under a
+// per-company+product advisory lock) and can be rebuilt from moves (reconciliation).
+// Nothing but posting a StockEntry writes these tables.
+
+enum TrackingMode {
+  NONE
+  BATCH
+  SERIAL
+}
+
+enum StockEntryType {
+  OPENING
+  RECEIPT
+  ISSUE
+  ADJUSTMENT
+  TRANSFER
+  GOODS_RECEIPT
+  DELIVERY
+  SALES_RETURN
+  PURCHASE_RETURN
+}
+
+enum StockEntryStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+/// 1 `uom` = `factor` x the product's base unit (e.g. BOX = 12 NOS).
+model UomConversion {
+  id             String  @id @default(cuid())
+  organizationId String
+  productId      String
+  uomId          String
+  factor         Decimal @db.Decimal(18, 6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: Cascade)
+  uom          Uom          @relation(fields: [organizationId, uomId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([productId, uomId])
+  @@map("uom_conversions")
+}
+
+model Warehouse {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String
+  branchId       String?
+  code           String
+  name           String
+  address        String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company        Company           @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch         Branch?           @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  locations      StorageLocation[]
+  balances       StockBalance[]
+  reservations   StockReservation[]
+  salesOrders    SalesOrder[]
+  purchaseOrders PurchaseOrder[]
+  sourceEntries  StockEntry[]      @relation("EntrySourceWarehouse")
+  targetEntries  StockEntry[]      @relation("EntryTargetWarehouse")
+
+  @@unique([companyId, code])
+  @@unique([organizationId, id])
+  @@unique([organizationId, companyId, id])
+  @@map("warehouses")
+}
+
+model StorageLocation {
+  id             String  @id @default(cuid())
+  organizationId String
+  companyId      String
+  warehouseId    String
+  code           String
+  name           String
+  isDefault      Boolean @default(false)
+  isActive       Boolean @default(true)
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse      @relation(fields: [organizationId, companyId, warehouseId], references: [organizationId, companyId, id], onDelete: Cascade)
+  moves        StockMove[]
+  balances     StockBalance[]
+  sourceLines  StockEntryLine[] @relation("LineSourceLocation")
+  targetLines  StockEntryLine[] @relation("LineTargetLocation")
+
+  @@unique([warehouseId, code])
+  @@unique([organizationId, id])
+  @@map("storage_locations")
+}
+
+/// Batch / serial number of a tracked product (serial = a lot that is only ever 1 unit).
+model StockLot {
+  id             String    @id @default(cuid())
+  organizationId String
+  productId      String
+  lotNumber      String
+  expiryDate     DateTime? @db.Date
+  createdAt      DateTime  @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product          @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  moves        StockMove[]
+  balances     StockBalance[]
+  lines        StockEntryLine[]
+
+  @@unique([productId, lotNumber])
+  @@unique([organizationId, id])
+  @@map("stock_lots")
+}
+
+/// Every stock document: opening stock, receipts, issues, adjustments, transfers,
+/// goods receipts (from POs), deliveries (for SOs) and returns. DRAFT entries have no
+/// effect; posting writes the ledger; cancelling a posted entry writes reversing moves.
+model StockEntry {
+  id                String           @id @default(cuid())
+  organizationId    String
+  companyId         String
+  branchId          String?
+  number            String
+  type              StockEntryType
+  status            StockEntryStatus @default(DRAFT)
+  sourceWarehouseId String?
+  targetWarehouseId String?
+  purchaseOrderId   String?
+  salesOrderId      String?
+  vendorId          String?
+  customerId        String?
+  /// Original GRN / delivery for returns
+  returnOfId        String?
+  reference         String?
+  notes             String?
+  postedAt          DateTime?
+  postedById        String?          @db.Uuid
+  cancelledAt       DateTime?
+  cancelReason      String?
+  createdById       String           @db.Uuid
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company         Company          @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch          Branch?          @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  sourceWarehouse Warehouse?       @relation("EntrySourceWarehouse", fields: [organizationId, companyId, sourceWarehouseId], references: [organizationId, companyId, id], onDelete: NoAction)
+  targetWarehouse Warehouse?       @relation("EntryTargetWarehouse", fields: [organizationId, companyId, targetWarehouseId], references: [organizationId, companyId, id], onDelete: NoAction)
+  purchaseOrder   PurchaseOrder?   @relation(fields: [organizationId, purchaseOrderId], references: [organizationId, id], onDelete: NoAction)
+  salesOrder      SalesOrder?      @relation(fields: [organizationId, salesOrderId], references: [organizationId, id], onDelete: NoAction)
+  vendor          Vendor?          @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
+  customer        Customer?        @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  returnOf        StockEntry?      @relation("EntryReturns", fields: [organizationId, returnOfId], references: [organizationId, id], onDelete: NoAction)
+  returns         StockEntry[]     @relation("EntryReturns")
+  createdBy       User             @relation("StockEntryCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines           StockEntryLine[]
+  moves           StockMove[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, companyId, type, status])
+  @@index([organizationId, purchaseOrderId])
+  @@index([organizationId, salesOrderId])
+  @@map("stock_entries")
+}
+
+model StockEntryLine {
+  id                  String    @id @default(cuid())
+  organizationId      String
+  entryId             String
+  productId           String
+  /// In the line's unit; signed for ADJUSTMENT (+ found / - lost)
+  quantity            Decimal   @db.Decimal(18, 4)
+  uomId               String?
+  /// quantity converted to the product's base unit
+  baseQuantity        Decimal   @db.Decimal(18, 4)
+  /// Cost per base unit for inbound lines (receipts, opening stock, positive adjustments)
+  unitCost            Decimal?  @db.Decimal(18, 4)
+  lotNumber           String?
+  expiryDate          DateTime? @db.Date
+  lotId               String?
+  sourceLocationId    String?
+  targetLocationId    String?
+  purchaseOrderLineId String?
+  salesOrderLineId    String?
+  returnOfLineId      String?
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entry             StockEntry         @relation(fields: [organizationId, entryId], references: [organizationId, id], onDelete: Cascade)
+  product           Product            @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  uom               Uom?               @relation(fields: [organizationId, uomId], references: [organizationId, id], onDelete: NoAction)
+  lot               StockLot?          @relation(fields: [organizationId, lotId], references: [organizationId, id], onDelete: NoAction)
+  sourceLocation    StorageLocation?   @relation("LineSourceLocation", fields: [organizationId, sourceLocationId], references: [organizationId, id], onDelete: NoAction)
+  targetLocation    StorageLocation?   @relation("LineTargetLocation", fields: [organizationId, targetLocationId], references: [organizationId, id], onDelete: NoAction)
+  purchaseOrderLine PurchaseOrderLine? @relation(fields: [organizationId, purchaseOrderLineId], references: [organizationId, id], onDelete: NoAction)
+  salesOrderLine    SalesOrderLine?    @relation(fields: [organizationId, salesOrderLineId], references: [organizationId, id], onDelete: NoAction)
+  returnOfLine      StockEntryLine?    @relation("LineReturns", fields: [organizationId, returnOfLineId], references: [organizationId, id], onDelete: NoAction)
+  returnLines       StockEntryLine[]   @relation("LineReturns")
+  moves             StockMove[]
+  billLines         VendorBillLine[]
+
+  @@unique([organizationId, id])
+  @@index([entryId])
+  @@index([organizationId, purchaseOrderLineId])
+  @@index([organizationId, salesOrderLineId])
+  @@index([organizationId, returnOfLineId])
+  @@map("stock_entry_lines")
+}
+
+/// Append-only ledger: signed quantity (+ in / - out) in base units at one location.
+model StockMove {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String
+  warehouseId    String
+  locationId     String
+  productId      String
+  lotId          String?
+  entryId        String
+  entryLineId    String
+  quantity       Decimal  @db.Decimal(18, 4)
+  unitCost       Decimal  @db.Decimal(18, 4)
+  /// quantity x unitCost (signed), the change in inventory value
+  value          Decimal  @db.Decimal(18, 2)
+  /// True for moves written when a posted entry was cancelled
+  isReversal     Boolean  @default(false)
+  movedAt        DateTime @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  location     StorageLocation @relation(fields: [organizationId, locationId], references: [organizationId, id], onDelete: NoAction)
+  product      Product         @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  lot          StockLot?       @relation(fields: [organizationId, lotId], references: [organizationId, id], onDelete: NoAction)
+  entry        StockEntry      @relation(fields: [organizationId, entryId], references: [organizationId, id], onDelete: NoAction)
+  entryLine    StockEntryLine  @relation(fields: [organizationId, entryLineId], references: [organizationId, id], onDelete: NoAction)
+
+  @@index([organizationId, companyId, productId, movedAt])
+  @@index([locationId, productId])
+  @@index([entryId])
+  @@map("stock_moves")
+}
+
+/// Cached on-hand quantity per location / product / lot (lotKey = lotId or "").
+model StockBalance {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String
+  warehouseId    String
+  locationId     String
+  productId      String
+  lotId          String?
+  lotKey         String   @default("")
+  quantity       Decimal  @default(0) @db.Decimal(18, 4)
+  updatedAt      DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse       @relation(fields: [organizationId, companyId, warehouseId], references: [organizationId, companyId, id], onDelete: NoAction)
+  location     StorageLocation @relation(fields: [organizationId, locationId], references: [organizationId, id], onDelete: NoAction)
+  product      Product         @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  lot          StockLot?       @relation(fields: [organizationId, lotId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([locationId, productId, lotKey])
+  @@index([organizationId, companyId, productId])
+  @@index([warehouseId, productId])
+  @@map("stock_balances")
+}
+
+/// Moving weighted average cost per company and product.
+model StockValuation {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String
+  productId      String
+  quantity       Decimal  @default(0) @db.Decimal(18, 4)
+  value          Decimal  @default(0) @db.Decimal(18, 2)
+  averageCost    Decimal  @default(0) @db.Decimal(18, 4)
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company      @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  product      Product      @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([companyId, productId])
+  @@map("stock_valuations")
+}
+
+/// Open reservation for one sales order line (base units). One row per line, so
+/// retrying a reservation can never double-reserve.
+model StockReservation {
+  id               String   @id @default(cuid())
+  organizationId   String
+  companyId        String
+  warehouseId      String
+  productId        String
+  salesOrderLineId String
+  quantity         Decimal  @default(0) @db.Decimal(18, 4)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse      Warehouse      @relation(fields: [organizationId, companyId, warehouseId], references: [organizationId, companyId, id], onDelete: NoAction)
+  product        Product        @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  salesOrderLine SalesOrderLine @relation(fields: [organizationId, salesOrderLineId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, salesOrderLineId])
+  @@index([warehouseId, productId])
+  @@map("stock_reservations")
+}
+
+// ─── Purchasing: vendors, purchase orders, vendor bills ──────────────────────
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+  CLOSED
+}
+
+enum VendorBillStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+model Vendor {
+  id               String       @id @default(cuid())
+  organizationId   String
+  code             String?
+  name             String
+  legalName        String?
+  email            String?
+  phone            String?
+  gstin            String?
+  pan              String?
+  stateCode        String?
+  address          String?
+  paymentTermsDays Int?
+  status           RecordStatus @default(ACTIVE)
+  notes            String?
+  createdById      String       @db.Uuid
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User            @relation("VendorCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  contacts       Contact[]
+  purchaseOrders PurchaseOrder[]
+  bills          VendorBill[]
+  stockEntries   StockEntry[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, code])
+  @@unique([organizationId, gstin])
+  @@index([organizationId, name])
+  @@map("vendors")
+}
+
+model PurchaseOrder {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  companyId          String
+  branchId           String
+  warehouseId        String
+  number             String
+  vendorId           String
+  status             PurchaseOrderStatus @default(DRAFT)
+  orderDate          DateTime            @default(now()) @db.Date
+  expectedDate       DateTime?           @db.Date
+  currency           String              @default("INR")
+  /// Vendor's GST state; equal to the branch state => CGST+SGST, else IGST
+  supplierState      String?
+  notes              String?
+  subtotal           Decimal             @default(0) @db.Decimal(18, 2)
+  discountTotal      Decimal             @default(0) @db.Decimal(18, 2)
+  taxableTotal       Decimal             @default(0) @db.Decimal(18, 2)
+  taxTotal           Decimal             @default(0) @db.Decimal(18, 2)
+  grandTotal         Decimal             @default(0) @db.Decimal(18, 2)
+  approvalRequired   Boolean             @default(false)
+  approvalReason     String?
+  approvalNote       String?
+  approvedById       String?             @db.Uuid
+  approvedAt         DateTime?
+  cancelledAt        DateTime?
+  cancelReason       String?
+  closedAt           DateTime?
+  createdById        String              @db.Uuid
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company             @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch       Branch              @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  warehouse    Warehouse           @relation(fields: [organizationId, companyId, warehouseId], references: [organizationId, companyId, id], onDelete: NoAction)
+  vendor       Vendor              @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
+  approvedBy   User?               @relation("PurchaseOrderApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdBy    User                @relation("PurchaseOrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines        PurchaseOrderLine[]
+  stockEntries StockEntry[]
+  bills        VendorBill[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, companyId, status])
+  @@index([organizationId, vendorId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id              String  @id @default(cuid())
+  organizationId  String
+  purchaseOrderId String
+  sortOrder       Int     @default(0)
+  productId       String
+  description     String
+  /// Quantities below are all in the line's unit
+  quantity        Decimal @db.Decimal(18, 4)
+  uomId           String?
+  unitPrice       Decimal @db.Decimal(18, 2)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  taxRateId       String?
+  taxRate         Decimal @default(0) @db.Decimal(6, 3)
+  grossAmount     Decimal @db.Decimal(18, 2)
+  discountAmount  Decimal @db.Decimal(18, 2)
+  taxableAmount   Decimal @db.Decimal(18, 2)
+  cgstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  sgstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  igstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  taxAmount       Decimal @db.Decimal(18, 2)
+  lineTotal       Decimal @db.Decimal(18, 2)
+  receivedQty     Decimal @default(0) @db.Decimal(18, 4)
+  returnedQty     Decimal @default(0) @db.Decimal(18, 4)
+  billedQty       Decimal @default(0) @db.Decimal(18, 4)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrder   PurchaseOrder    @relation(fields: [organizationId, purchaseOrderId], references: [organizationId, id], onDelete: Cascade)
+  product         Product          @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  uom             Uom?             @relation(fields: [organizationId, uomId], references: [organizationId, id], onDelete: NoAction)
+  tax             TaxRate?         @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+  stockEntryLines StockEntryLine[]
+  billLines       VendorBillLine[]
+
+  @@unique([organizationId, id])
+  @@index([purchaseOrderId])
+  @@map("purchase_order_lines")
+}
+
+model VendorBill {
+  id                  String           @id @default(cuid())
+  organizationId      String
+  companyId           String
+  branchId            String
+  number              String
+  /// The vendor's own invoice number; unique per vendor to stop double entry
+  vendorInvoiceNumber String
+  vendorId            String
+  purchaseOrderId     String?
+  status              VendorBillStatus @default(DRAFT)
+  billDate            DateTime         @db.Date
+  dueDate             DateTime?        @db.Date
+  currency            String           @default("INR")
+  supplierState       String?
+  notes               String?
+  subtotal            Decimal          @default(0) @db.Decimal(18, 2)
+  discountTotal       Decimal          @default(0) @db.Decimal(18, 2)
+  taxableTotal        Decimal          @default(0) @db.Decimal(18, 2)
+  taxTotal            Decimal          @default(0) @db.Decimal(18, 2)
+  grandTotal          Decimal          @default(0) @db.Decimal(18, 2)
+  postedAt            DateTime?
+  cancelledAt         DateTime?
+  cancelReason        String?
+  createdById         String           @db.Uuid
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company       Company          @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch        Branch           @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  vendor        Vendor           @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
+  purchaseOrder PurchaseOrder?   @relation(fields: [organizationId, purchaseOrderId], references: [organizationId, id], onDelete: NoAction)
+  createdBy     User             @relation("VendorBillCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines         VendorBillLine[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, vendorId, vendorInvoiceNumber])
+  @@unique([organizationId, id])
+  @@index([organizationId, companyId, status])
+  @@map("vendor_bills")
+}
+
+model VendorBillLine {
+  id                  String  @id @default(cuid())
+  organizationId      String
+  billId              String
+  sortOrder           Int     @default(0)
+  purchaseOrderLineId String?
+  goodsReceiptLineId  String?
+  productId           String?
+  description         String
+  quantity            Decimal @db.Decimal(18, 4)
+  unitPrice           Decimal @db.Decimal(18, 2)
+  discountPercent     Decimal @default(0) @db.Decimal(5, 2)
+  taxRateId           String?
+  taxRate             Decimal @default(0) @db.Decimal(6, 3)
+  grossAmount         Decimal @db.Decimal(18, 2)
+  discountAmount      Decimal @db.Decimal(18, 2)
+  taxableAmount       Decimal @db.Decimal(18, 2)
+  cgstAmount          Decimal @default(0) @db.Decimal(18, 2)
+  sgstAmount          Decimal @default(0) @db.Decimal(18, 2)
+  igstAmount          Decimal @default(0) @db.Decimal(18, 2)
+  taxAmount           Decimal @db.Decimal(18, 2)
+  lineTotal           Decimal @db.Decimal(18, 2)
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bill              VendorBill         @relation(fields: [organizationId, billId], references: [organizationId, id], onDelete: Cascade)
+  purchaseOrderLine PurchaseOrderLine? @relation(fields: [organizationId, purchaseOrderLineId], references: [organizationId, id], onDelete: NoAction)
+  goodsReceiptLine  StockEntryLine?    @relation(fields: [organizationId, goodsReceiptLineId], references: [organizationId, id], onDelete: NoAction)
+  product           Product?           @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  tax               TaxRate?           @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, id])
+  @@index([billId])
+  @@map("vendor_bill_lines")
+}

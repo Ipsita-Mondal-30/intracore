@@ -2,19 +2,23 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isAppError } from "@/lib/errors";
+import { Decimal } from "@/lib/money";
 import { can, getAccessContext } from "@/lib/access";
 import { getSalesOrder } from "@/features/sales/orders";
 import { listCatalogLookups, listProducts } from "@/features/catalog/service";
+import { listWarehouses } from "@/features/inventory/warehouses";
+import { DeliverForm } from "@/features/inventory/deliver-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiForm, Field } from "@/components/erp/api-form";
 import { ActionButton } from "@/components/erp/action-button";
 import { LinesEditor } from "@/components/erp/lines-editor";
 import { StatusBadge } from "@/components/erp/status-badge";
 import { AuditTrail, DocumentLines, DocumentTotals } from "@/components/erp/document-view";
-import { dateInput, formatDate, formatQty } from "@/components/erp/format";
+import { dateInput, formatDate, formatQty, humanize } from "@/components/erp/format";
 
 export default async function SalesOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,6 +34,14 @@ export default async function SalesOrderPage({ params }: { params: Promise<{ id:
   const [products, lookups] = canAmend && can(ctx, "product.view")
     ? await Promise.all([listProducts(ctx, { pageSize: "100", status: "ACTIVE" }), listCatalogLookups(ctx)])
     : [null, null];
+
+  const deliverable = order.status === "CONFIRMED" || order.status === "PARTIALLY_DELIVERED";
+  const canChangeWarehouse = (order.status === "DRAFT" || (order.status === "CONFIRMED" && nothingDelivered)) && can(ctx, "sales_order.update") && can(ctx, "inventory.view");
+  const warehouses = canChangeWarehouse ? (await listWarehouses(ctx, order.companyId)).filter((w) => w.isActive) : [];
+  const productLines = order.lines
+    .filter((l) => l.product)
+    .map((l) => ({ line: l, open: Decimal.max(l.quantity.sub(l.deliveredQty), 0) }));
+  const openLines = productLines.filter((p) => p.open.gt(0));
 
   const ordered = order.lines.reduce((sum, l) => sum + Number(l.quantity.toString()), 0);
   const delivered = order.lines.reduce((sum, l) => sum + Number(l.deliveredQty.toString()), 0);
@@ -163,7 +175,76 @@ export default async function SalesOrderPage({ params }: { params: Promise<{ id:
         </div>
 
         <div className="space-y-4">
-          {/* Stock & deliveries card (inventory phase) goes above History. */}
+          <Card>
+            <CardHeader><CardTitle>Stock &amp; deliveries</CardTitle></CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <p className="text-subtle">Warehouse</p>
+                {canChangeWarehouse ? (
+                  <ApiForm path={`/sales-orders/${id}`} method="PATCH" submitLabel="Change warehouse" successMessage="Warehouse updated" className="mt-1 space-y-2">
+                    <Select name="warehouseId" defaultValue={order.warehouse?.id ?? ""} data-nullable aria-label="Warehouse">
+                      <option value="">No warehouse</option>
+                      {warehouses.map((w) => <option key={w.id} value={w.id}>{w.code} · {w.name}</option>)}
+                    </Select>
+                  </ApiForm>
+                ) : (
+                  <p>{order.warehouse ? `${order.warehouse.code} · ${order.warehouse.name}` : "—"}</p>
+                )}
+              </div>
+
+              {productLines.length ? (
+                <table className="w-full">
+                  <thead className="text-left text-2xs uppercase tracking-wide text-subtle">
+                    <tr><th className="py-1 pr-2">Item</th><th className="py-1 pr-2 text-right">Ordered</th><th className="py-1 pr-2 text-right">Delivered</th><th className="py-1 pr-2 text-right">Reserved</th><th className="py-1 text-right">Open</th></tr>
+                  </thead>
+                  <tbody>
+                    {productLines.map(({ line, open }) => (
+                      <tr key={line.id} className="border-t border-[var(--ic-border)]">
+                        <td className="py-1 pr-2">{line.product?.sku}</td>
+                        <td className="py-1 pr-2 text-right">{formatQty(line.quantity)}</td>
+                        <td className="py-1 pr-2 text-right">{formatQty(line.deliveredQty)}</td>
+                        <td className="py-1 pr-2 text-right" title="Base units">{line.reservation ? formatQty(line.reservation.quantity) : "—"}</td>
+                        <td className="py-1 text-right font-medium">{formatQty(open)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <p className="text-muted">No product lines.</p>}
+
+              {deliverable && can(ctx, "sales_order.update") ? (
+                <ActionButton path={`/sales-orders/${id}/reserve`} label="Reserve available stock" />
+              ) : null}
+
+              {deliverable && openLines.length && can(ctx, "inventory.create") && can(ctx, "inventory.post") ? (
+                <div className="space-y-2 border-t border-[var(--ic-border)] pt-3">
+                  <p className="font-medium">Deliver</p>
+                  <DeliverForm
+                    orderId={id}
+                    lines={openLines.map(({ line, open }) => ({
+                      id: line.id,
+                      label: `${line.product?.sku} · ${line.description}`,
+                      open: open.toString(),
+                      uom: line.uom?.code ?? "",
+                      needsLot: Boolean(line.product?.trackInventory && line.product.trackingMode !== "NONE"),
+                    }))}
+                  />
+                </div>
+              ) : null}
+
+              {order.stockEntries.length ? (
+                <ul className="space-y-1 border-t border-[var(--ic-border)] pt-3">
+                  {order.stockEntries.map((e) => (
+                    <li key={e.id} className="flex flex-wrap items-center gap-2">
+                      <Link href={`/inventory/entries/${e.id}`} className="text-primary hover:underline">{e.number}</Link>
+                      <span className="text-muted">{humanize(e.type)}</span>
+                      <StatusBadge status={e.status} />
+                      <span className="text-2xs text-subtle">{formatDate(e.postedAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader><CardTitle>History</CardTitle></CardHeader>
             <CardContent><AuditTrail ctx={ctx} entity="sales_order" entityId={id} /></CardContent>

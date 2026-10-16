@@ -2,6 +2,7 @@ import { can, getAccessContext } from "@/lib/access";
 import { listCompanies } from "@/features/companies/service";
 import { listCustomers } from "@/features/customers/service";
 import { listCatalogLookups, listProducts } from "@/features/catalog/service";
+import { listWarehouses } from "@/features/inventory/warehouses";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,12 +29,13 @@ export default async function NewSalesOrderPage({ searchParams }: Props) {
   }
 
   const canCatalog = can(ctx, "product.view");
-  const [companies, customers, products, lookups] = await Promise.all([
+  const [companies, customers, products, lookups, warehouses] = await Promise.all([
     can(ctx, "company.view") ? listCompanies(ctx) : [],
     // ponytail: first 100 active customers; switch to a search combobox when tenants outgrow it
     can(ctx, "customer.view") ? listCustomers(ctx, { status: "ACTIVE", pageSize: "100" }) : null,
     canCatalog ? listProducts(ctx, { pageSize: "100", status: "ACTIVE" }) : null,
     canCatalog ? listCatalogLookups(ctx) : null,
+    can(ctx, "inventory.view") ? listWarehouses(ctx) : [],
   ]);
   const branches = companies.flatMap((c) => c.branches.filter((b) => b.isActive).map((b) => ({ value: `${c.id}:${b.id}`, label: `${c.code} · ${b.name}` })));
   const customerId = param(params, "customerId") ?? "";
@@ -62,6 +64,14 @@ export default async function NewSalesOrderPage({ searchParams }: Props) {
                 </Select>
               </Field>
               <Field label="Customer PO number"><Input name="customerPoNumber" /></Field>
+              {warehouses.length ? (
+                <Field label="Warehouse" hint="Must belong to the order's company">
+                  <Select name="warehouseId" data-nullable defaultValue="">
+                    <option value="">Branch default</option>
+                    {warehouses.filter((w) => w.isActive).map((w) => <option key={w.id} value={w.id}>{w.company.code} · {w.code} · {w.name}</option>)}
+                  </Select>
+                </Field>
+              ) : null}
               <Field label="Expected delivery"><Input type="date" name="expectedDeliveryDate" /></Field>
               <Field label="Shipping address" className="sm:col-span-2"><Input name="shippingAddress" /></Field>
               <Field label="Delivery instructions" className="sm:col-span-3"><Textarea name="deliveryInstructions" rows={2} /></Field>

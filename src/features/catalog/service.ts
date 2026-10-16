@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProductType, RecordStatus, type Prisma } from "@prisma/client";
+import { ProductType, RecordStatus, TrackingMode, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
 import { assertCan, type AccessContext } from "@/lib/access";
@@ -24,6 +24,11 @@ const productSchema = z.object({
   taxRateId: z.string().min(1).nullish(),
   salesPrice: zDecimal().default("0"),
   purchasePrice: zDecimal().default("0"),
+  trackInventory: z.boolean().optional(),
+  trackingMode: z.nativeEnum(TrackingMode).optional(),
+  hasExpiry: z.boolean().optional(),
+  reorderLevel: zDecimal({ places: 4 }).nullish(),
+  reorderQty: zDecimal({ places: 4 }).nullish(),
 });
 
 const productUpdateSchema = productSchema
@@ -75,7 +80,13 @@ export async function createProduct(ctx: AccessContext, input: unknown) {
   const data = productSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     const product = await tx.product.create({
-      data: { ...data, organizationId: ctx.organizationId, createdById: ctx.userId },
+      data: {
+        ...data,
+        // Services never hold stock; goods track it unless told otherwise.
+        trackInventory: data.type === ProductType.GOODS && (data.trackInventory ?? true),
+        organizationId: ctx.organizationId,
+        createdById: ctx.userId,
+      },
     });
     await audit(tx, ctx, { action: "product.created", entity: "product", entityId: product.id, next: product });
     return product;
@@ -88,6 +99,7 @@ export async function updateProduct(ctx: AccessContext, id: string, input: unkno
   return prisma.$transaction(async (tx) => {
     const before = await tx.product.findFirst({ where: { id, organizationId: ctx.organizationId } });
     if (!before) throw new AppError("NOT_FOUND", "Product not found", 404);
+    await assertStockSafeChange(tx, before, data);
     const diff = changes(before as Record<string, unknown>, data);
     if (!diff.changed) return before;
     const product = await tx.product.update({ where: { id }, data });
@@ -200,4 +212,62 @@ export async function setCustomerPrices(ctx: AccessContext, customerId: string, 
     await audit(tx, ctx, { action: "customer.prices_updated", entity: "customer", entityId: customerId, next: prices });
   });
   return listCustomerPrices(ctx, customerId);
+}
+
+/**
+ * Archiving needs zero stock and no open reservations; the base unit, tracking mode
+ * and stock tracking cannot change while stock exists (lots and quantities would no
+ * longer mean the same thing).
+ */
+async function assertStockSafeChange(
+  tx: Prisma.TransactionClient,
+  before: { id: string; uomId: string; trackingMode: TrackingMode; trackInventory: boolean; type: ProductType },
+  data: { status?: RecordStatus; uomId?: string; trackingMode?: TrackingMode; trackInventory?: boolean; type?: ProductType },
+) {
+  const archiving = data.status === RecordStatus.ARCHIVED;
+  const structural =
+    (data.uomId !== undefined && data.uomId !== before.uomId) ||
+    (data.trackingMode !== undefined && data.trackingMode !== before.trackingMode) ||
+    (data.trackInventory !== undefined && data.trackInventory !== before.trackInventory) ||
+    (data.type !== undefined && data.type !== before.type);
+  if (!archiving && !structural) return;
+  const [onHand, reserved] = await Promise.all([
+    tx.stockBalance.count({ where: { productId: before.id, quantity: { not: 0 } } }),
+    tx.stockReservation.count({ where: { productId: before.id, quantity: { gt: 0 } } }),
+  ]);
+  if (onHand > 0 || reserved > 0) {
+    throw new AppError(
+      "INVALID_STATE",
+      archiving ? "Products with stock on hand or open reservations cannot be archived" : "Unit, tracking or stock settings cannot change while stock exists",
+      422,
+    );
+  }
+}
+
+// ─── Unit conversions ────────────────────────────────────────────────────────
+
+const conversionsSchema = z.object({
+  conversions: z
+    .array(z.object({ uomId: z.string().min(1), factor: zDecimal({ places: 6 }).refine((f) => f.gt(0), "Factor must be positive") }))
+    .max(20),
+});
+
+/** Replace a product's alternate units: 1 `uomId` = `factor` base units. */
+export async function setUomConversions(ctx: AccessContext, productId: string, input: unknown) {
+  assertCan(ctx, "product.update");
+  const { conversions } = conversionsSchema.parse(input);
+  return prisma.$transaction(async (tx) => {
+    const product = await tx.product.findFirst({ where: { id: productId, organizationId: ctx.organizationId } });
+    if (!product) throw new AppError("NOT_FOUND", "Product not found", 404);
+    if (conversions.some((c) => c.uomId === product.uomId)) {
+      throw new AppError("VALIDATION_ERROR", "The base unit needs no conversion", 422);
+    }
+    const before = await tx.uomConversion.findMany({ where: { productId } });
+    await tx.uomConversion.deleteMany({ where: { productId } });
+    await tx.uomConversion.createMany({
+      data: conversions.map((c) => ({ organizationId: ctx.organizationId, productId, uomId: c.uomId, factor: c.factor })),
+    });
+    await audit(tx, ctx, { action: "product.uom_conversions_updated", entity: "product", entityId: productId, previous: before, next: conversions });
+    return tx.uomConversion.findMany({ where: { productId }, include: { uom: { select: { code: true, name: true } } } });
+  });
 }

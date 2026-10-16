@@ -10,6 +10,7 @@ import { companySettings } from "@/lib/settings";
 import { dec } from "@/lib/money";
 import { copyLine, linesSchema, partyHeaderSchema, priceLines, resolveSalesParty } from "@/features/sales/pricing";
 import { changeOpportunityStage, isClosed } from "@/features/opportunities/service";
+import { defaultWarehouseId } from "@/features/inventory/warehouses";
 
 const S = QuotationStatus;
 
@@ -411,6 +412,7 @@ export async function convertQuotationToOrder(ctx: AccessContext, id: string) {
           companyId: q.companyId,
           branchId: q.branchId,
           number: await nextDocumentNumber(tx, q.organizationId, q.companyId, "sales_order"),
+          warehouseId: await defaultWarehouseId(tx, q.organizationId, q.companyId, q.branchId),
           quotationId: q.id,
           customerId: q.customerId,
           contactId: q.contactId,
