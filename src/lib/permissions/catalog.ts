@@ -154,6 +154,14 @@ export const PERMISSIONS: PermissionSeed[] = [
   ...perms("loyalty", "view", "manage"),
   ...perms("signature", "view", "request"),
   ...perms("job", "view", "replay"),
+
+  // Portals, analytics and administration
+  ...perms("portal", "manage"),
+  ...perms("report", "build"),
+  ...perms("data", "import", "export"),
+  ...perms("system", "configure"),
+  ...perms("retention", "manage"),
+  ...perms("backup", "view"),
 ];
 
 /** Every staff role (not Viewer) can apply for leave, mark own attendance and claim expenses. */
