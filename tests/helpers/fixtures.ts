@@ -66,7 +66,11 @@ export type OrgFixture = Awaited<ReturnType<typeof createOrg>>;
 
 export async function cleanupFixtures() {
   await prisma.auditLog.deleteMany({ where: { organizationId: { in: created.orgs } } });
-  await prisma.organization.deleteMany({ where: { id: { in: created.orgs } } });
+  // Posted journals are immutable (DB trigger); purging a test tenant needs the explicit flag.
+  await prisma.$transaction([
+    prisma.$executeRaw`SELECT set_config('app.allow_ledger_purge', 'on', true)`,
+    prisma.organization.deleteMany({ where: { id: { in: created.orgs } } }),
+  ]);
   await prisma.auditLog.deleteMany({ where: { userId: { in: created.users } } });
   await prisma.user.deleteMany({ where: { id: { in: created.users } } });
   created.orgs = [];

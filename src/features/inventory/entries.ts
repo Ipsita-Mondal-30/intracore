@@ -15,6 +15,7 @@ import { assertCan, assertCompanyAccess, companyScopeWhere, type AccessContext }
 import { audit } from "@/lib/audit";
 import { listArgs, listQuerySchema, paginate, searchWhere } from "@/lib/api/list";
 import { nextDocumentNumber } from "@/lib/numbering";
+import { postStockJournal, reverseStockJournal } from "@/features/finance/stock-journals";
 import { dec, Decimal, zDecimal } from "@/lib/money";
 import {
   allowNegativeStock,
@@ -209,6 +210,7 @@ async function postEntryInTx(tx: Db, ctx: AccessContext, id: string) {
   const moves = await buildMoves(tx, entry, stocked);
   await applyMoves(tx, entry, moves, { allowNegative: await allowNegativeStock(tx, entry.companyId) });
   await syncSourceStatus(tx, entry);
+  await postStockJournal(tx, ctx.userId, entry);
 
   const posted = await tx.stockEntry.update({
     where: { id },
@@ -397,6 +399,7 @@ export async function cancelStockEntry(ctx: AccessContext, id: string, input: un
         { allowNegative: await allowNegativeStock(tx, entry.companyId) },
       );
       await syncSourceStatus(tx, entry);
+      await reverseStockJournal(tx, ctx.userId, entry);
     }
     const cancelled = await tx.stockEntry.update({
       where: { id },

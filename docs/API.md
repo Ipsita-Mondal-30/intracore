@@ -160,3 +160,45 @@ Jobs added: `low-stock-alerts`.
 
 New system roles: **Inventory Manager**, **Purchase Manager** (created for existing
 organizations by migration `20261016120000_inventory_and_purchasing`).
+
+## Finance (Phase 4)
+
+Accounting model, posting rules and GST notes: [docs/FINANCE.md](FINANCE.md).
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| POST (idem) | `/companies/:id/finance/setup` | `finance.administer` | `{ accountingStartDate, fiscalYearStartMonth? }` — chart, mappings, fiscal year, bank/cash, categories |
+| GET / POST (idem) | `/companies/:id/fiscal-years` | `finance.view` / `finance.administer` | POST `{ containingDate }` |
+| PATCH | `/accounting-periods/:id` | `finance.administer` | `{ status: OPEN|CLOSED, reason? }` (reason required to reopen) |
+| GET / POST (idem) | `/companies/:id/accounts` | `finance.view` / `finance.administer` | GET includes mappings and mapping keys |
+| PATCH | `/accounts/:id` | `finance.administer` | Code/type locked once used |
+| PUT | `/companies/:id/account-mappings` | `finance.administer` | `{ mappings: { KEY: accountId } }`, type-checked |
+| GET / POST (idem) | `/companies/:id/bank-accounts` | `finance.view` / `finance.administer` | |
+| POST (idem) | `/tax-rates/:id/versions` | `catalog.administer` | `{ rate, effectiveFrom }` |
+| GET / POST (idem) | `/sales-invoices` | `invoice.view` / `invoice.create` | Filters `status, customerId, outstanding=true|overdue` |
+| GET / PATCH | `/sales-invoices/:id` | `invoice.view` / `invoice.create` | PATCH while DRAFT |
+| POST (idem) | `/sales-invoices/:id/post` | `invoice.post` | Number + journal; retry-safe |
+| POST (idem) | `/sales-invoices/:id/cancel` | `invoice.cancel` | `{ reason }`; only unsettled invoices |
+| GET | `/sales-invoices/:id/einvoice-payload` | `invoice.view` | Payload + blocking errors |
+| POST (idem) | `/sales-invoices/:id/einvoice` | `invoice.post` | `422 NOT_CONFIGURED` without a provider |
+| POST (idem) | `/sales-orders/:id/invoice` | `invoice.create` | Draft for delivered goods / ordered services |
+| GET / POST (idem) | `/credit-notes` · `/credit-notes/:id` · `/credit-notes/:id/{post|cancel}` | `invoice.*` | Lines reference invoice lines |
+| GET / POST (idem) | `/receipts` | `receipt.view` / `receipt.create` | Posts immediately; `allocations: [{ invoiceId, amount }]` |
+| GET · POST (idem) | `/receipts/:id` · `/receipts/:id/cancel` | `receipt.view` / `receipt.cancel` | |
+| POST (idem) | `/receivable-allocations` | `receipt.create` / `invoice.post` | `{ receiptId | creditNoteId, allocations }` |
+| GET / POST (idem) | `/vendor-payments` · `/vendor-payments/:id` · `/vendor-payments/:id/cancel` | `payment.*` | |
+| POST (idem) | `/payable-allocations` | `payment.create` / `vendor_bill.post` | `{ paymentId | debitNoteId, allocations: [{ billId, amount }] }` |
+| GET / POST (idem) | `/debit-notes` · `/debit-notes/:id` · `/debit-notes/:id/{post|cancel}` | `vendor_bill.*` | |
+| POST (idem) | `/vendor-bills/:id/approve` | `vendor_bill.approve` | Required above `settings.purchase.billApprovalAmount` |
+| GET / POST (idem) | `/expense-claims` · `/expense-claims/:id` (GET/PATCH) | `expense.view` / `expense.create` | Claimants see their own claims |
+| POST (idem) | `/expense-claims/:id/{submit|approve|reject|cancel|pay}` | claimant / `expense.approve` / `expense.pay` | `pay { bankAccountId, paidOn?, reference? }` |
+| GET / POST (idem) | `/companies/:id/expense-categories` | `expense.view` / `finance.administer` | |
+| POST (idem) | `/bank-accounts/:id/imports` | `finance.post` | Manual CSV import (no bank feed) |
+| GET | `/bank-accounts/:id/transactions` · `/bank-accounts/:id/cashbook` | `finance.view` | |
+| GET · POST | `/bank-transactions/:id/matches` · `/bank-transactions/:id/{reconcile|unreconcile}` | `finance.view` / `finance.post` | |
+| POST (idem) | `/account-transfers` | `finance.post` | |
+| GET / POST (idem) | `/journals` · `/journals/:id` (GET/PATCH/DELETE drafts) · `/journals/:id/{post|reverse}` | `finance.view` / `finance.post` | Reverse only manual journals |
+| GET | `/companies/:id/reports/{trial-balance|general-ledger|profit-and-loss|balance-sheet|receivables-aging|payables-aging|reconciliation|gstr1|gstr3b}` | `finance.report` | GST reports take `gstin, from, to` |
+| GET | `/companies/:id/statements/{customers|vendors}/:partyId` | `finance.report` | |
+
+Jobs added: `overdue-invoice-reminders`. New system role: **Accountant**.

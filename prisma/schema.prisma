@@ -60,6 +60,8 @@ model User {
   createdPurchaseOrders PurchaseOrder[]         @relation("PurchaseOrderCreator")
   approvedPurchaseOrders PurchaseOrder[]        @relation("PurchaseOrderApprover")
   createdVendorBills  VendorBill[]              @relation("VendorBillCreator")
+  createdJournals     JournalEntry[]            @relation("JournalCreator")
+  expenseClaims       ExpenseClaim[]            @relation("ExpenseClaimant")
 
   @@map("users")
 }
@@ -154,6 +156,30 @@ model Organization {
   purchaseOrderLines PurchaseOrderLine[]
   vendorBills   VendorBill[]
   vendorBillLines VendorBillLine[]
+  fiscalYears   FiscalYear[]
+  accountingPeriods AccountingPeriod[]
+  accounts      Account[]
+  accountMappings AccountMapping[]
+  journalEntries JournalEntry[]
+  journalLines  JournalLine[]
+  taxRateVersions TaxRateVersion[]
+  bankAccounts  BankAccount[]
+  salesInvoices SalesInvoice[]
+  salesInvoiceLines SalesInvoiceLine[]
+  creditNotes   CreditNote[]
+  creditNoteLines CreditNoteLine[]
+  paymentReceipts PaymentReceipt[]
+  receivableAllocations ReceivableAllocation[]
+  debitNotes    DebitNote[]
+  debitNoteLines DebitNoteLine[]
+  vendorPayments VendorPayment[]
+  payableAllocations PayableAllocation[]
+  expenseCategories ExpenseCategory[]
+  expenseClaims ExpenseClaim[]
+  expenseClaimLines ExpenseClaimLine[]
+  bankImports   BankImport[]
+  bankTransactions BankTransaction[]
+  accountTransfers AccountTransfer[]
 
   @@map("organizations")
 }
@@ -1108,6 +1134,18 @@ model Company {
   stockValuations StockValuation[]
   purchaseOrders  PurchaseOrder[]
   vendorBills     VendorBill[]
+  fiscalYears     FiscalYear[]
+  accounts        Account[]
+  journalEntries  JournalEntry[]
+  bankAccounts    BankAccount[]
+  salesInvoices   SalesInvoice[]
+  creditNotes     CreditNote[]
+  paymentReceipts PaymentReceipt[]
+  debitNotes      DebitNote[]
+  vendorPayments  VendorPayment[]
+  expenseCategories ExpenseCategory[]
+  expenseClaims   ExpenseClaim[]
+  accountTransfers AccountTransfer[]
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -1136,6 +1174,9 @@ model Branch {
   stockEntries StockEntry[]
   purchaseOrders PurchaseOrder[]
   vendorBills  VendorBill[]
+  salesInvoices SalesInvoice[]
+  creditNotes  CreditNote[]
+  debitNotes   DebitNote[]
 
   @@unique([companyId, code])
   @@unique([organizationId, id])
@@ -1313,6 +1354,9 @@ model Customer {
   quotations     Quotation[]
   salesOrders    SalesOrder[]
   stockEntries   StockEntry[]
+  invoices       SalesInvoice[]
+  creditNotes    CreditNote[]
+  receipts       PaymentReceipt[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, code])
@@ -1476,8 +1520,11 @@ model TaxRate {
   id             String   @id @default(cuid())
   organizationId String
   name           String
-  /// Total GST rate in percent; split into CGST+SGST (intra-state) or IGST (inter-state)
+  /// Current GST rate in percent (mirror of the version in force today); documents use
+  /// the TaxRateVersion effective on the document date. Split into CGST+SGST or IGST.
   rate           Decimal  @db.Decimal(6, 3)
+  /// GSTR-1 supply category
+  kind           TaxKind  @default(TAXABLE)
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1488,6 +1535,10 @@ model TaxRate {
   salesOrderLines SalesOrderLine[]
   purchaseOrderLines PurchaseOrderLine[]
   vendorBillLines VendorBillLine[]
+  versions        TaxRateVersion[]
+  salesInvoiceLines SalesInvoiceLine[]
+  creditNoteLines CreditNoteLine[]
+  debitNoteLines  DebitNoteLine[]
 
   @@unique([organizationId, name])
   @@unique([organizationId, id])
@@ -1538,6 +1589,9 @@ model Product {
   reservations    StockReservation[]
   purchaseOrderLines PurchaseOrderLine[]
   vendorBillLines VendorBillLine[]
+  salesInvoiceLines SalesInvoiceLine[]
+  creditNoteLines CreditNoteLine[]
+  debitNoteLines  DebitNoteLine[]
 
   @@unique([organizationId, sku])
   @@unique([organizationId, barcode])
@@ -1723,6 +1777,7 @@ model SalesOrder {
   warehouse    Warehouse?       @relation(fields: [organizationId, companyId, warehouseId], references: [organizationId, companyId, id], onDelete: NoAction)
   lines        SalesOrderLine[]
   stockEntries StockEntry[]
+  invoices     SalesInvoice[]
 
   @@unique([companyId, number])
   /// One sales order per quotation (retry-safe quote-to-order conversion)
@@ -1757,9 +1812,11 @@ model SalesOrderLine {
   lineTotal       Decimal  @db.Decimal(18, 2)
   deliveredQty    Decimal  @default(0) @db.Decimal(18, 4)
   returnedQty     Decimal  @default(0) @db.Decimal(18, 4)
+  invoicedQty     Decimal  @default(0) @db.Decimal(18, 4)
 
   organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesOrder    SalesOrder     @relation(fields: [organizationId, salesOrderId], references: [organizationId, id], onDelete: Cascade)
+  invoiceLines  SalesInvoiceLine[]
   reservation   StockReservation?
   stockEntryLines StockEntryLine[]
   quotationLine QuotationLine? @relation(fields: [organizationId, quotationLineId], references: [organizationId, id], onDelete: NoAction)
@@ -2127,6 +2184,8 @@ model Vendor {
   purchaseOrders PurchaseOrder[]
   bills          VendorBill[]
   stockEntries   StockEntry[]
+  debitNotes     DebitNote[]
+  payments       VendorPayment[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, code])
@@ -2245,6 +2304,12 @@ model VendorBill {
   taxableTotal        Decimal          @default(0) @db.Decimal(18, 2)
   taxTotal            Decimal          @default(0) @db.Decimal(18, 2)
   grandTotal          Decimal          @default(0) @db.Decimal(18, 2)
+  /// Settled by payments / debit notes (see PayableAllocation)
+  paidAmount          Decimal          @default(0) @db.Decimal(18, 2)
+  debitedAmount       Decimal          @default(0) @db.Decimal(18, 2)
+  approvedAt          DateTime?
+  approvedById        String?          @db.Uuid
+  journalEntryId      String?
   postedAt            DateTime?
   cancelledAt         DateTime?
   cancelReason        String?
@@ -2256,6 +2321,8 @@ model VendorBill {
   company       Company          @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
   branch        Branch           @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
   vendor        Vendor           @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
+  debitNotes    DebitNote[]
+  allocations   PayableAllocation[]
   purchaseOrder PurchaseOrder?   @relation(fields: [organizationId, purchaseOrderId], references: [organizationId, id], onDelete: NoAction)
   createdBy     User             @relation("VendorBillCreator", fields: [createdById], references: [id], onDelete: Restrict)
   lines         VendorBillLine[]
@@ -2296,8 +2363,793 @@ model VendorBillLine {
   goodsReceiptLine  StockEntryLine?    @relation(fields: [organizationId, goodsReceiptLineId], references: [organizationId, id], onDelete: NoAction)
   product           Product?           @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
   tax               TaxRate?           @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+  debitNoteLines    DebitNoteLine[]
 
   @@unique([organizationId, id])
   @@index([billId])
   @@map("vendor_bill_lines")
+}
+
+// ─── Finance: periods, chart of accounts, journals ───────────────────────────
+//
+// Double entry: every POSTED JournalEntry balances (Σ debit = Σ credit), enforced by
+// the service and by a deferred constraint trigger; posted lines are immutable (DB
+// trigger). One journal per business event: (companyId, sourceType, sourceId,
+// sourceEvent) is unique, which makes posting retry-safe. See docs/FINANCE.md.
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+enum TaxKind {
+  TAXABLE
+  EXEMPT
+  NIL_RATED
+  ZERO_RATED
+  NON_GST
+}
+
+enum FinanceDocStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  UPI
+  CARD
+  OTHER
+}
+
+enum BankAccountKind {
+  BANK
+  CASH
+}
+
+enum BankTxnStatus {
+  UNRECONCILED
+  RECONCILED
+  IGNORED
+}
+
+enum ExpenseClaimStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+model FiscalYear {
+  id             String       @id @default(cuid())
+  organizationId String
+  companyId      String
+  name           String
+  startDate      DateTime     @db.Date
+  endDate        DateTime     @db.Date
+  status         PeriodStatus @default(OPEN)
+  createdAt      DateTime     @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company            @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  periods      AccountingPeriod[]
+
+  @@unique([companyId, startDate])
+  @@unique([organizationId, id])
+  @@map("fiscal_years")
+}
+
+model AccountingPeriod {
+  id             String       @id @default(cuid())
+  organizationId String
+  companyId      String
+  fiscalYearId   String
+  name           String
+  startDate      DateTime     @db.Date
+  endDate        DateTime     @db.Date
+  status         PeriodStatus @default(OPEN)
+  closedAt       DateTime?
+  closedById     String?      @db.Uuid
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fiscalYear   FiscalYear     @relation(fields: [organizationId, fiscalYearId], references: [organizationId, id], onDelete: Cascade)
+  journals     JournalEntry[]
+
+  @@unique([companyId, startDate])
+  @@unique([organizationId, id])
+  @@index([companyId, startDate, endDate])
+  @@map("accounting_periods")
+}
+
+model Account {
+  id             String      @id @default(cuid())
+  organizationId String
+  companyId      String
+  code           String
+  name           String
+  type           AccountType
+  parentId       String?
+  /// Group accounts only organise the chart; journals post to non-group accounts
+  isGroup        Boolean     @default(false)
+  isActive       Boolean     @default(true)
+  isSystem       Boolean     @default(false)
+  description    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company         Company           @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  parent          Account?          @relation("AccountTree", fields: [organizationId, companyId, parentId], references: [organizationId, companyId, id], onDelete: NoAction)
+  children        Account[]         @relation("AccountTree")
+  mappings        AccountMapping[]
+  journalLines    JournalLine[]
+  bankAccounts    BankAccount[]
+  expenseCategories ExpenseCategory[]
+
+  @@unique([companyId, code])
+  @@unique([organizationId, id])
+  @@unique([organizationId, companyId, id])
+  @@map("accounts")
+}
+
+/// Company-level posting rules, e.g. ACCOUNTS_RECEIVABLE -> 1300. Posting fails with
+/// MAPPING_MISSING rather than guessing an account.
+model AccountMapping {
+  id             String @id @default(cuid())
+  organizationId String
+  companyId      String
+  key            String
+  accountId      String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [organizationId, companyId, accountId], references: [organizationId, companyId, id], onDelete: NoAction)
+
+  @@unique([companyId, key])
+  @@map("account_mappings")
+}
+
+model JournalEntry {
+  id             String        @id @default(cuid())
+  organizationId String
+  companyId      String
+  number         String?
+  date           DateTime      @db.Date
+  periodId       String?
+  status         JournalStatus @default(DRAFT)
+  /// MANUAL, SALES_INVOICE, CREDIT_NOTE, RECEIPT, VENDOR_BILL, DEBIT_NOTE, VENDOR_PAYMENT,
+  /// STOCK_ENTRY, EXPENSE_CLAIM, TRANSFER
+  sourceType     String
+  sourceId       String?
+  /// post | cancel | approve | pay | reverse
+  sourceEvent    String        @default("post")
+  memo           String?
+  totalDebit     Decimal       @default(0) @db.Decimal(18, 2)
+  totalCredit    Decimal       @default(0) @db.Decimal(18, 2)
+  reversalOfId   String?
+  postedAt       DateTime?
+  postedById     String?       @db.Uuid
+  createdById    String?       @db.Uuid
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company           @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  period       AccountingPeriod? @relation(fields: [organizationId, periodId], references: [organizationId, id], onDelete: NoAction)
+  reversalOf   JournalEntry?     @relation("JournalReversal", fields: [organizationId, reversalOfId], references: [organizationId, id], onDelete: NoAction)
+  reversedBy   JournalEntry?     @relation("JournalReversal")
+  createdBy    User?             @relation("JournalCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  lines        JournalLine[]
+
+  @@unique([companyId, number])
+  @@unique([companyId, sourceType, sourceId, sourceEvent])
+  @@unique([organizationId, reversalOfId])
+  @@unique([organizationId, id])
+  @@index([organizationId, companyId, date])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id             String  @id @default(cuid())
+  organizationId String
+  companyId      String
+  entryId        String
+  accountId      String
+  debit          Decimal @default(0) @db.Decimal(18, 2)
+  credit         Decimal @default(0) @db.Decimal(18, 2)
+  description    String?
+  /// Sub-ledger tags for AR / AP / bank lines
+  customerId     String?
+  vendorId       String?
+  bankAccountId  String?
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entry        JournalEntry      @relation(fields: [organizationId, entryId], references: [organizationId, id], onDelete: Cascade)
+  account      Account           @relation(fields: [organizationId, companyId, accountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  bankMatch    BankTransaction?
+
+  @@unique([organizationId, id])
+  @@index([companyId, accountId])
+  @@index([entryId])
+  @@map("journal_lines")
+}
+
+/// Rate in force from `effectiveFrom` until the next version (or `effectiveTo`).
+model TaxRateVersion {
+  id             String    @id @default(cuid())
+  organizationId String
+  taxRateId      String
+  rate           Decimal   @db.Decimal(6, 3)
+  effectiveFrom  DateTime  @db.Date
+  effectiveTo    DateTime? @db.Date
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  taxRate      TaxRate      @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([taxRateId, effectiveFrom])
+  @@map("tax_rate_versions")
+}
+
+model BankAccount {
+  id             String          @id @default(cuid())
+  organizationId String
+  companyId      String
+  name           String
+  kind           BankAccountKind @default(BANK)
+  bankName       String?
+  accountNumberLast4 String?
+  ifsc           String?
+  /// Ledger account (asset) this bank/cash account posts to
+  accountId      String
+  currency       String          @default("INR")
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization  Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company       Company           @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  account       Account           @relation(fields: [organizationId, companyId, accountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  receipts      PaymentReceipt[]
+  payments      VendorPayment[]
+  imports       BankImport[]
+  transactions  BankTransaction[]
+  transfersOut  AccountTransfer[] @relation("TransferFrom")
+  transfersIn   AccountTransfer[] @relation("TransferTo")
+  expenseClaims ExpenseClaim[]
+
+  @@unique([companyId, name])
+  @@unique([organizationId, id])
+  @@unique([organizationId, companyId, id])
+  @@map("bank_accounts")
+}
+
+// ─── Receivables ─────────────────────────────────────────────────────────────
+
+model SalesInvoice {
+  id                 String           @id @default(cuid())
+  organizationId     String
+  companyId          String
+  branchId           String
+  /// Assigned when posted, so issued invoice numbers have no gaps
+  number             String?
+  salesOrderId       String?
+  customerId         String
+  status             FinanceDocStatus @default(DRAFT)
+  invoiceDate        DateTime         @db.Date
+  dueDate            DateTime         @db.Date
+  placeOfSupplyState String?
+  sellerGstin        String?
+  customerGstin      String?
+  billingAddress     String?
+  shippingAddress    String?
+  reverseCharge      Boolean          @default(false)
+  currency           String           @default("INR")
+  subtotal           Decimal          @default(0) @db.Decimal(18, 2)
+  discountTotal      Decimal          @default(0) @db.Decimal(18, 2)
+  taxableTotal       Decimal          @default(0) @db.Decimal(18, 2)
+  cgstTotal          Decimal          @default(0) @db.Decimal(18, 2)
+  sgstTotal          Decimal          @default(0) @db.Decimal(18, 2)
+  igstTotal          Decimal          @default(0) @db.Decimal(18, 2)
+  taxTotal           Decimal          @default(0) @db.Decimal(18, 2)
+  grandTotal         Decimal          @default(0) @db.Decimal(18, 2)
+  /// Settled by receipts / credit notes (see ReceivableAllocation)
+  paidAmount         Decimal          @default(0) @db.Decimal(18, 2)
+  creditedAmount     Decimal          @default(0) @db.Decimal(18, 2)
+  notes              String?
+  terms              String?
+  journalEntryId     String?
+  postedAt           DateTime?
+  cancelledAt        DateTime?
+  cancelReason       String?
+  lastReminderAt     DateTime?
+  /// E-invoice registration (filled only by a configured e-invoice adapter)
+  irn                String?
+  irnStatus          String?
+  createdById        String           @db.Uuid
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company                @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch       Branch                 @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  salesOrder   SalesOrder?            @relation(fields: [organizationId, salesOrderId], references: [organizationId, id], onDelete: NoAction)
+  customer     Customer               @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  lines        SalesInvoiceLine[]
+  creditNotes  CreditNote[]
+  allocations  ReceivableAllocation[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, companyId, status, dueDate])
+  @@index([organizationId, customerId])
+  @@map("sales_invoices")
+}
+
+model SalesInvoiceLine {
+  id               String    @id @default(cuid())
+  organizationId   String
+  invoiceId        String
+  sortOrder        Int       @default(0)
+  salesOrderLineId String?
+  productId        String?
+  description      String
+  hsnCode          String?
+  quantity         Decimal   @db.Decimal(18, 4)
+  uomId            String?
+  unitPrice        Decimal   @db.Decimal(18, 2)
+  discountPercent  Decimal   @default(0) @db.Decimal(5, 2)
+  taxRateId        String?
+  taxRate          Decimal   @default(0) @db.Decimal(6, 3)
+  taxKind          TaxKind   @default(TAXABLE)
+  grossAmount      Decimal   @db.Decimal(18, 2)
+  discountAmount   Decimal   @db.Decimal(18, 2)
+  taxableAmount    Decimal   @db.Decimal(18, 2)
+  cgstAmount       Decimal   @default(0) @db.Decimal(18, 2)
+  sgstAmount       Decimal   @default(0) @db.Decimal(18, 2)
+  igstAmount       Decimal   @default(0) @db.Decimal(18, 2)
+  taxAmount        Decimal   @db.Decimal(18, 2)
+  lineTotal        Decimal   @db.Decimal(18, 2)
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice        SalesInvoice     @relation(fields: [organizationId, invoiceId], references: [organizationId, id], onDelete: Cascade)
+  salesOrderLine SalesOrderLine?  @relation(fields: [organizationId, salesOrderLineId], references: [organizationId, id], onDelete: NoAction)
+  product        Product?         @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  tax            TaxRate?         @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+  creditLines    CreditNoteLine[]
+
+  @@unique([organizationId, id])
+  @@index([invoiceId])
+  @@map("sales_invoice_lines")
+}
+
+model CreditNote {
+  id             String           @id @default(cuid())
+  organizationId String
+  companyId      String
+  branchId       String
+  number         String?
+  invoiceId      String
+  customerId     String
+  status         FinanceDocStatus @default(DRAFT)
+  noteDate       DateTime         @db.Date
+  reason         String
+  subtotal       Decimal          @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal          @default(0) @db.Decimal(18, 2)
+  taxableTotal   Decimal          @default(0) @db.Decimal(18, 2)
+  cgstTotal      Decimal          @default(0) @db.Decimal(18, 2)
+  sgstTotal      Decimal          @default(0) @db.Decimal(18, 2)
+  igstTotal      Decimal          @default(0) @db.Decimal(18, 2)
+  taxTotal       Decimal          @default(0) @db.Decimal(18, 2)
+  grandTotal     Decimal          @default(0) @db.Decimal(18, 2)
+  /// Portion applied to invoices; the rest is customer credit
+  appliedAmount  Decimal          @default(0) @db.Decimal(18, 2)
+  journalEntryId String?
+  postedAt       DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String           @db.Uuid
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company                @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch       Branch                 @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  invoice      SalesInvoice           @relation(fields: [organizationId, invoiceId], references: [organizationId, id], onDelete: NoAction)
+  customer     Customer               @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  lines        CreditNoteLine[]
+  allocations  ReceivableAllocation[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, customerId])
+  @@map("credit_notes")
+}
+
+model CreditNoteLine {
+  id              String  @id @default(cuid())
+  organizationId  String
+  creditNoteId    String
+  sortOrder       Int     @default(0)
+  invoiceLineId   String?
+  productId       String?
+  description     String
+  hsnCode         String?
+  quantity        Decimal @db.Decimal(18, 4)
+  unitPrice       Decimal @db.Decimal(18, 2)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  taxRateId       String?
+  taxRate         Decimal @default(0) @db.Decimal(6, 3)
+  taxKind         TaxKind @default(TAXABLE)
+  grossAmount     Decimal @db.Decimal(18, 2)
+  discountAmount  Decimal @db.Decimal(18, 2)
+  taxableAmount   Decimal @db.Decimal(18, 2)
+  cgstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  sgstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  igstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  taxAmount       Decimal @db.Decimal(18, 2)
+  lineTotal       Decimal @db.Decimal(18, 2)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creditNote   CreditNote        @relation(fields: [organizationId, creditNoteId], references: [organizationId, id], onDelete: Cascade)
+  invoiceLine  SalesInvoiceLine? @relation(fields: [organizationId, invoiceLineId], references: [organizationId, id], onDelete: NoAction)
+  product      Product?          @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  tax          TaxRate?          @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, id])
+  @@index([creditNoteId])
+  @@map("credit_note_lines")
+}
+
+model PaymentReceipt {
+  id              String           @id @default(cuid())
+  organizationId  String
+  companyId       String
+  number          String?
+  customerId      String
+  bankAccountId   String
+  receiptDate     DateTime         @db.Date
+  amount          Decimal          @db.Decimal(18, 2)
+  method          PaymentMethod    @default(BANK_TRANSFER)
+  reference       String?
+  status          FinanceDocStatus @default(DRAFT)
+  allocatedAmount Decimal          @default(0) @db.Decimal(18, 2)
+  notes           String?
+  journalEntryId  String?
+  postedAt        DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdById     String           @db.Uuid
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company                @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  customer     Customer               @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  bankAccount  BankAccount            @relation(fields: [organizationId, companyId, bankAccountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  allocations  ReceivableAllocation[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, customerId])
+  @@map("payment_receipts")
+}
+
+/// Settlement of an invoice by a receipt or a credit note. Reversed (not deleted)
+/// when the receipt / credit note is cancelled.
+model ReceivableAllocation {
+  id             String    @id @default(cuid())
+  organizationId String
+  companyId      String
+  invoiceId      String
+  receiptId      String?
+  creditNoteId   String?
+  amount         Decimal   @db.Decimal(18, 2)
+  createdAt      DateTime  @default(now())
+  reversedAt     DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      SalesInvoice    @relation(fields: [organizationId, invoiceId], references: [organizationId, id], onDelete: NoAction)
+  receipt      PaymentReceipt? @relation(fields: [organizationId, receiptId], references: [organizationId, id], onDelete: NoAction)
+  creditNote   CreditNote?     @relation(fields: [organizationId, creditNoteId], references: [organizationId, id], onDelete: NoAction)
+
+  @@index([invoiceId])
+  @@index([receiptId])
+  @@index([creditNoteId])
+  @@map("receivable_allocations")
+}
+
+// ─── Payables ────────────────────────────────────────────────────────────────
+
+model DebitNote {
+  id             String           @id @default(cuid())
+  organizationId String
+  companyId      String
+  branchId       String
+  number         String?
+  billId         String
+  vendorId       String
+  status         FinanceDocStatus @default(DRAFT)
+  noteDate       DateTime         @db.Date
+  reason         String
+  subtotal       Decimal          @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal          @default(0) @db.Decimal(18, 2)
+  taxableTotal   Decimal          @default(0) @db.Decimal(18, 2)
+  taxTotal       Decimal          @default(0) @db.Decimal(18, 2)
+  grandTotal     Decimal          @default(0) @db.Decimal(18, 2)
+  appliedAmount  Decimal          @default(0) @db.Decimal(18, 2)
+  journalEntryId String?
+  postedAt       DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String           @db.Uuid
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company             @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch       Branch              @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  bill         VendorBill          @relation(fields: [organizationId, billId], references: [organizationId, id], onDelete: NoAction)
+  vendor       Vendor              @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
+  lines        DebitNoteLine[]
+  allocations  PayableAllocation[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, vendorId])
+  @@map("debit_notes")
+}
+
+model DebitNoteLine {
+  id              String  @id @default(cuid())
+  organizationId  String
+  debitNoteId     String
+  sortOrder       Int     @default(0)
+  billLineId      String?
+  productId       String?
+  description     String
+  quantity        Decimal @db.Decimal(18, 4)
+  unitPrice       Decimal @db.Decimal(18, 2)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  taxRateId       String?
+  taxRate         Decimal @default(0) @db.Decimal(6, 3)
+  grossAmount     Decimal @db.Decimal(18, 2)
+  discountAmount  Decimal @db.Decimal(18, 2)
+  taxableAmount   Decimal @db.Decimal(18, 2)
+  cgstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  sgstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  igstAmount      Decimal @default(0) @db.Decimal(18, 2)
+  taxAmount       Decimal @db.Decimal(18, 2)
+  lineTotal       Decimal @db.Decimal(18, 2)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  debitNote    DebitNote       @relation(fields: [organizationId, debitNoteId], references: [organizationId, id], onDelete: Cascade)
+  billLine     VendorBillLine? @relation(fields: [organizationId, billLineId], references: [organizationId, id], onDelete: NoAction)
+  product      Product?        @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  tax          TaxRate?        @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, id])
+  @@index([debitNoteId])
+  @@map("debit_note_lines")
+}
+
+model VendorPayment {
+  id              String           @id @default(cuid())
+  organizationId  String
+  companyId       String
+  number          String?
+  vendorId        String
+  bankAccountId   String
+  paymentDate     DateTime         @db.Date
+  amount          Decimal          @db.Decimal(18, 2)
+  method          PaymentMethod    @default(BANK_TRANSFER)
+  reference       String?
+  status          FinanceDocStatus @default(DRAFT)
+  allocatedAmount Decimal          @default(0) @db.Decimal(18, 2)
+  notes           String?
+  journalEntryId  String?
+  postedAt        DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdById     String           @db.Uuid
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company             @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  vendor       Vendor              @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
+  bankAccount  BankAccount         @relation(fields: [organizationId, companyId, bankAccountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  allocations  PayableAllocation[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, vendorId])
+  @@map("vendor_payments")
+}
+
+model PayableAllocation {
+  id             String    @id @default(cuid())
+  organizationId String
+  companyId      String
+  billId         String
+  paymentId      String?
+  debitNoteId    String?
+  amount         Decimal   @db.Decimal(18, 2)
+  createdAt      DateTime  @default(now())
+  reversedAt     DateTime?
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bill         VendorBill     @relation(fields: [organizationId, billId], references: [organizationId, id], onDelete: NoAction)
+  payment      VendorPayment? @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: NoAction)
+  debitNote    DebitNote?     @relation(fields: [organizationId, debitNoteId], references: [organizationId, id], onDelete: NoAction)
+
+  @@index([billId])
+  @@index([paymentId])
+  @@index([debitNoteId])
+  @@map("payable_allocations")
+}
+
+// ─── Expenses, bank and cash ─────────────────────────────────────────────────
+
+model ExpenseCategory {
+  id             String  @id @default(cuid())
+  organizationId String
+  companyId      String
+  name           String
+  /// Expense account the category posts to
+  accountId      String
+  isActive       Boolean @default(true)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company            @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  account      Account            @relation(fields: [organizationId, companyId, accountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  lines        ExpenseClaimLine[]
+
+  @@unique([companyId, name])
+  @@unique([organizationId, id])
+  @@map("expense_categories")
+}
+
+model ExpenseClaim {
+  id                String             @id @default(cuid())
+  organizationId    String
+  companyId         String
+  number            String
+  claimantId        String             @db.Uuid
+  title             String
+  status            ExpenseClaimStatus @default(DRAFT)
+  totalAmount       Decimal            @default(0) @db.Decimal(18, 2)
+  submittedAt       DateTime?
+  approvedById      String?            @db.Uuid
+  approvedAt        DateTime?
+  rejectionReason   String?
+  bankAccountId     String?
+  paidAt            DateTime?
+  paymentReference  String?
+  approvalJournalId String?
+  paymentJournalId  String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company            @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  claimant     User               @relation("ExpenseClaimant", fields: [claimantId], references: [id], onDelete: Restrict)
+  bankAccount  BankAccount?       @relation(fields: [organizationId, companyId, bankAccountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  lines        ExpenseClaimLine[]
+
+  @@unique([companyId, number])
+  @@unique([organizationId, id])
+  @@index([organizationId, claimantId])
+  @@map("expense_claims")
+}
+
+model ExpenseClaimLine {
+  id             String   @id @default(cuid())
+  organizationId String
+  claimId        String
+  categoryId     String
+  expenseDate    DateTime @db.Date
+  description    String
+  amount         Decimal  @db.Decimal(18, 2)
+  /// Recoverable GST included in the amount (posted to input tax)
+  taxAmount      Decimal  @default(0) @db.Decimal(18, 2)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  claim        ExpenseClaim    @relation(fields: [organizationId, claimId], references: [organizationId, id], onDelete: Cascade)
+  category     ExpenseCategory @relation(fields: [organizationId, categoryId], references: [organizationId, id], onDelete: NoAction)
+
+  @@index([claimId])
+  @@map("expense_claim_lines")
+}
+
+/// A manually uploaded bank statement file (no live bank connection).
+model BankImport {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String
+  bankAccountId  String
+  fileName       String
+  rowCount       Int
+  skippedCount   Int      @default(0)
+  importedById   String   @db.Uuid
+  createdAt      DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccount  BankAccount       @relation(fields: [organizationId, companyId, bankAccountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  transactions BankTransaction[]
+
+  @@unique([organizationId, id])
+  @@map("bank_imports")
+}
+
+model BankTransaction {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  companyId          String
+  bankAccountId      String
+  importId           String?
+  txnDate            DateTime      @db.Date
+  description        String
+  reference          String?
+  /// + money in, − money out
+  amount             Decimal       @db.Decimal(18, 2)
+  status             BankTxnStatus @default(UNRECONCILED)
+  /// The ledger line this statement line was matched to (each line matches once)
+  matchedJournalLineId String?     @unique
+  reconciledAt       DateTime?
+  reconciledById     String?       @db.Uuid
+  /// Hash of date/amount/reference/description: re-importing a file adds nothing twice
+  dedupeKey          String
+  createdAt          DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccount  BankAccount  @relation(fields: [organizationId, companyId, bankAccountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  import       BankImport?  @relation(fields: [organizationId, importId], references: [organizationId, id], onDelete: NoAction)
+  matchedLine  JournalLine? @relation(fields: [matchedJournalLineId], references: [id], onDelete: NoAction)
+
+  @@unique([bankAccountId, dedupeKey])
+  @@index([organizationId, bankAccountId, txnDate])
+  @@map("bank_transactions")
+}
+
+model AccountTransfer {
+  id             String           @id @default(cuid())
+  organizationId String
+  companyId      String
+  number         String
+  fromBankAccountId String
+  toBankAccountId String
+  transferDate   DateTime         @db.Date
+  amount         Decimal          @db.Decimal(18, 2)
+  reference      String?
+  status         FinanceDocStatus @default(POSTED)
+  journalEntryId String?
+  createdById    String           @db.Uuid
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company      @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  fromAccount  BankAccount  @relation("TransferFrom", fields: [organizationId, companyId, fromBankAccountId], references: [organizationId, companyId, id], onDelete: NoAction)
+  toAccount    BankAccount  @relation("TransferTo", fields: [organizationId, companyId, toBankAccountId], references: [organizationId, companyId, id], onDelete: NoAction)
+
+  @@unique([companyId, number])
+  @@map("account_transfers")
 }

@@ -3,9 +3,10 @@ import { RecordStatus, type Prisma } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { assertCompanyAccess, type AccessContext } from "@/lib/access";
 import { computeLine, dec, isIntraState, sumTotals, zDecimal, type Decimal } from "@/lib/money";
+import { ratesOn } from "@/features/finance/setup";
 
-export const lineInputSchema = z
-  .object({
+/** Line fields without the free-text rule (documents that copy lines extend this). */
+export const lineFieldsSchema = z.object({
     productId: z.string().min(1).nullish(),
     description: z.string().trim().max(1000).nullish(),
     quantity: zDecimal({ places: 4 }).refine((q) => q.gt(0), "Quantity must be greater than zero"),
@@ -13,11 +14,12 @@ export const lineInputSchema = z
     unitPrice: zDecimal().nullish(),
     discountPercent: zDecimal({ max: 100 }).nullish(),
     taxRateId: z.string().min(1).nullish(),
-  })
-  .refine((l) => l.productId || (l.description && l.unitPrice), {
-    message: "Free-text lines need a description and unit price",
-    path: ["description"],
-  });
+});
+
+export const lineInputSchema = lineFieldsSchema.refine((l) => l.productId || (l.description && l.unitPrice), {
+  message: "Free-text lines need a description and unit price",
+  path: ["description"],
+});
 
 export type LineInputData = z.infer<typeof lineInputSchema>;
 
@@ -32,7 +34,13 @@ export async function priceLines(
   db: Prisma.TransactionClient,
   organizationId: string,
   lines: LineInputData[],
-  opts: { intraState: boolean; customerId?: string; priceField?: "salesPrice" | "purchasePrice" },
+  opts: {
+    intraState: boolean;
+    customerId?: string;
+    priceField?: "salesPrice" | "purchasePrice";
+    /** Document date: picks the GST rate version in force (default today) */
+    date?: Date;
+  },
 ) {
   const productIds = [...new Set(lines.map((l) => l.productId).filter((id): id is string => Boolean(id)))];
   const products = await db.product.findMany({ where: { organizationId, id: { in: productIds } } });
@@ -62,6 +70,7 @@ export async function priceLines(
   const taxRates = new Map(
     (await db.taxRate.findMany({ where: { organizationId, id: { in: taxIds } } })).map((t) => [t.id, t]),
   );
+  const ratesInForce = await ratesOn(db, organizationId, taxIds, opts.date ?? new Date());
 
   const priced = lines.map((line, index) => {
     const product = line.productId ? byId.get(line.productId) : undefined;
@@ -75,7 +84,7 @@ export async function priceLines(
       (product && opts.customerId ? customerPrices.get(product.id) : undefined) ??
       dec(product?.[opts.priceField ?? "salesPrice"]);
     const discountPercent = line.discountPercent ?? dec(0);
-    const taxRate = tax ? dec(tax.rate) : dec(0);
+    const taxRate = tax ? dec(ratesInForce.get(tax.id) ?? tax.rate) : dec(0);
     const amounts = computeLine({ quantity: line.quantity, unitPrice, discountPercent, taxRate }, opts.intraState);
     return {
       sortOrder: index,
@@ -90,7 +99,12 @@ export async function priceLines(
       ...amounts,
     };
   });
-  return { lines: priced, totals: sumTotals(priced) };
+  return {
+    lines: priced,
+    totals: sumTotals(priced),
+    /** GSTR-1 supply category per line (aligned with `lines`) */
+    taxKinds: priced.map((l) => (l.taxRateId ? taxRates.get(l.taxRateId)?.kind ?? "TAXABLE" : "NON_GST")),
+  };
 }
 
 /** The priced fields of a stored line, for copying it onto another document. */

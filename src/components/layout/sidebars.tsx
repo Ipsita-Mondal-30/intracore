@@ -33,6 +33,7 @@ const modules = [
   { href: "/sales/quotations", label: "Sales", color: "bg-sky-500" },
   { href: "/inventory/products", label: "Inventory", color: "bg-amber-500" },
   { href: "/purchasing/orders", label: "Purchasing", color: "bg-rose-500" },
+  { href: "/finance/invoices", label: "Finance", color: "bg-violet-500" },
   {
     href: "/settings/organization",
     label: "Organization",
@@ -196,6 +197,24 @@ const sectionNav: { prefix: string; group: NavGroup }[] = [
         { href: "/purchasing/vendors", label: "Vendors", icon: Users },
         { href: "/purchasing/orders", label: "Purchase orders", icon: ListTodo },
         { href: "/purchasing/bills", label: "Vendor bills", icon: CheckCircle2 },
+      ],
+    },
+  },
+  {
+    prefix: "/finance",
+    group: {
+      title: "FINANCE",
+      items: [
+        { href: "/finance/invoices", label: "Invoices", icon: ListTodo },
+        { href: "/finance/credit-notes", label: "Credit notes", icon: XCircle },
+        { href: "/finance/receipts", label: "Receipts", icon: CheckCircle2 },
+        { href: "/finance/payments", label: "Vendor payments", icon: Upload },
+        { href: "/finance/debit-notes", label: "Debit notes", icon: XCircle },
+        { href: "/finance/expenses", label: "Expenses", icon: Package },
+        { href: "/finance/bank", label: "Bank & cash", icon: Building2 },
+        { href: "/finance/journals", label: "Journals", icon: GitBranch },
+        { href: "/finance/reports", label: "Reports & GST", icon: BarChart3 },
+        { href: "/finance/setup", label: "Setup", icon: Settings },
       ],
     },
   },

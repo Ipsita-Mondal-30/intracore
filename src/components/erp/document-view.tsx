@@ -106,7 +106,18 @@ export function DocumentTotals({
 /** Status and change history for one record, from the audit trail. */
 export async function AuditTrail({ ctx, entity, entityId }: { ctx: AccessContext; entity: string; entityId: string }) {
   // Entities whose view permission lives under another module.
-  const viewPermission = { stock_entry: "inventory.view", warehouse: "inventory.view" }[entity] ?? `${entity}.view`;
+  const viewPermission =
+    ({
+      stock_entry: "inventory.view",
+      warehouse: "inventory.view",
+      sales_invoice: "invoice.view",
+      credit_note: "invoice.view",
+      payment_receipt: "receipt.view",
+      vendor_payment: "payment.view",
+      debit_note: "vendor_bill.view",
+      expense_claim: "expense.view",
+      journal_entry: "finance.view",
+    } as Record<string, string>)[entity] ?? `${entity}.view`;
   if (!can(ctx, "audit.view") && !can(ctx, viewPermission)) return null;
   const logs = await prisma.auditLog.findMany({
     where: { organizationId: ctx.organizationId, entity, entityId },

@@ -48,6 +48,15 @@ const resolvers: Record<string, Resolver> = {
     prisma.stockEntry.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
   purchase_order: companyRecord("purchase_order.view", (ctx, id) =>
     prisma.purchaseOrder.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  sales_invoice: companyRecord("invoice.view", (ctx, id) =>
+    prisma.salesInvoice.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  expense_claim: async (ctx, id) => {
+    const claim = await prisma.expenseClaim.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, claimantId: true } });
+    if (!claim || !ctx.companies.has(claim.companyId)) return null;
+    // Claimants attach their own receipts; approvers/payers can see every claim.
+    const allowed = claim.claimantId === ctx.userId || can(ctx, "expense.approve") || can(ctx, "expense.pay");
+    return allowed ? { companyId: claim.companyId } : null;
+  },
   vendor_bill: companyRecord("vendor_bill.view", (ctx, id) =>
     prisma.vendorBill.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
 };
