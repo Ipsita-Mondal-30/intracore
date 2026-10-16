@@ -63,6 +63,7 @@ model User {
   createdJournals     JournalEntry[]            @relation("JournalCreator")
   expenseClaims       ExpenseClaim[]            @relation("ExpenseClaimant")
   employeeProfiles    Employee[]                @relation("EmployeeUser")
+  portalAccounts      PortalAccount[]
 
   @@map("users")
 }
@@ -250,6 +251,11 @@ model Organization {
   customerFeedback CustomerFeedback[]
   loyaltyLedger LoyaltyLedgerEntry[]
   signatureRequests SignatureRequest[]
+  portalAccounts PortalAccount[]
+  portalInvitations PortalInvitation[]
+  savedReports  SavedReport[]
+  dataExports   DataExport[]
+  retentionPolicies RetentionPolicy[]
 
   @@map("organizations")
 }
@@ -778,6 +784,8 @@ model LeadActivity {
 model ImportJob {
   id             String    @id @default(cuid())
   organizationId String
+  /// lead (legacy) or an admin import entity (customer, contact, vendor, product)
+  entity         String    @default("lead")
   createdById    String    @db.Uuid
   status         String    @default("COMPLETED")
   filename       String?
@@ -1434,6 +1442,8 @@ model Customer {
   name             String
   legalName        String?
   type             CustomerType @default(BUSINESS)
+  /// Dealers get the dealer portal; their authorized products and prices are their CustomerPrice rows
+  isDealer         Boolean      @default(false)
   email            String?
   phone            String?
   website          String?
@@ -1473,6 +1483,7 @@ model Customer {
   installationJobs InstallationJob[]
   feedback       CustomerFeedback[]
   loyaltyEntries LoyaltyLedgerEntry[]
+  portalAccounts PortalAccount[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, code])
@@ -2320,6 +2331,7 @@ model Vendor {
   stockEntries   StockEntry[]
   debitNotes     DebitNote[]
   payments       VendorPayment[]
+  portalAccounts PortalAccount[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, code])
@@ -3439,6 +3451,7 @@ model Employee {
   reviews          PerformanceReview[]
   salaryStructures SalaryStructure[]
   payslips         Payslip[]
+  portalAccounts   PortalAccount[]
 
   @@unique([companyId, employeeNumber])
   @@unique([organizationId, userId])
@@ -5047,4 +5060,139 @@ model SignatureRequest {
   @@unique([provider, providerRequestId])
   @@index([organizationId, status])
   @@map("signature_requests")
+}
+
+// ─── Phase 7: portals, saved reports, exports, retention, backups ────────────
+
+/// Portal identity. It grants NO internal permission: portal APIs authorize only through
+/// this row and the single party (customer, vendor or employee) it is linked to.
+model PortalAccount {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String    @db.Uuid
+  /// CUSTOMER | DEALER | VENDOR | EMPLOYEE | TECHNICIAN
+  kind           String
+  customerId     String?
+  vendorId       String?
+  employeeId     String?
+  /// ACTIVE | SUSPENDED
+  status         String    @default("ACTIVE")
+  invitedById    String?   @db.Uuid
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  vendor       Vendor?      @relation(fields: [organizationId, vendorId], references: [organizationId, id], onDelete: NoAction)
+  employee     Employee?    @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, userId, kind])
+  @@index([userId])
+  @@map("portal_accounts")
+}
+
+model PortalInvitation {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String
+  kind           String
+  customerId     String?
+  vendorId       String?
+  employeeId     String?
+  /// sha256 of the emailed token; the token itself is never stored
+  tokenHash      String    @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  acceptedUserId String?   @db.Uuid
+  revokedAt      DateTime?
+  invitedById    String    @db.Uuid
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email])
+  @@map("portal_invitations")
+}
+
+/// Report-builder definition: an allowlisted entity, fields, filters, grouping and sort.
+model SavedReport {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  entity         String
+  definition     Json
+  isShared       Boolean  @default(false)
+  createdById    String   @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@map("saved_reports")
+}
+
+model DataExport {
+  id             String    @id @default(cuid())
+  organizationId String
+  /// report-builder entity or "saved_report"
+  entity         String
+  format         String    @default("CSV")
+  params         Json      @default("{}")
+  /// PENDING | RUNNING | COMPLETED | FAILED | EXPIRED
+  status         String    @default("PENDING")
+  rowCount       Int?
+  storagePath    String?
+  error          String?
+  requestedById  String    @db.Uuid
+  completedAt    DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("data_exports")
+}
+
+/// Per-tenant retention for operational logs (allowlisted targets only).
+model RetentionPolicy {
+  id             String    @id @default(cuid())
+  organizationId String
+  target         String
+  keepDays       Int
+  isEnabled      Boolean   @default(false)
+  lastRunAt      DateTime?
+  lastPurged     Int?
+  updatedById    String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, target])
+  @@map("retention_policies")
+}
+
+/// Platform backup runs, written by scripts/backup.sh (and the provider's own backups when recorded).
+model BackupRun {
+  id          String    @id @default(cuid())
+  /// PG_DUMP | PROVIDER
+  kind        String
+  /// RUNNING | SUCCEEDED | FAILED
+  status      String    @default("RUNNING")
+  location    String?
+  sizeBytes   BigInt?
+  checksum    String?
+  error       String?
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  /// set when a restore of this backup was tested
+  verifiedAt  DateTime?
+  verifyNotes String?
+
+  @@index([startedAt])
+  @@map("backup_runs")
 }

@@ -22,12 +22,14 @@ import {
   BarChart3,
   ListTodo,
   Upload,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/actions";
 
 const modules = [
   { href: "/dashboard", label: "Overview", color: "bg-[var(--ic-primary)]" },
+  { href: "/analytics", label: "Analytics", color: "bg-fuchsia-500" },
   { href: "/leads", label: "Leads", color: "bg-[var(--ic-module-orange)]" },
   { href: "/crm/customers", label: "CRM", color: "bg-emerald-500" },
   { href: "/sales/quotations", label: "Sales", color: "bg-sky-500" },
@@ -155,12 +157,30 @@ const orgNavGroups: NavGroup[] = [
         icon: Plug,
       },
       { href: "/settings/jobs", label: "Jobs & webhooks", icon: Radio },
+      { href: "/settings/system", label: "System configuration", icon: Settings },
+      { href: "/settings/portal-users", label: "Portal users", icon: Users },
+      { href: "/settings/audit", label: "Audit trail", icon: Shield },
+      { href: "/settings/imports", label: "Imports", icon: Upload },
+      { href: "/settings/exports", label: "Exports", icon: Download },
+      { href: "/settings/retention", label: "Data retention", icon: Settings },
+      { href: "/settings/backups", label: "Backups", icon: Shield },
     ],
   },
 ];
 
 /** Sidebar links for ERP sections, keyed by path prefix. */
 const sectionNav: { prefix: string; group: NavGroup }[] = [
+  {
+    prefix: "/analytics",
+    group: {
+      title: "ANALYTICS",
+      items: [
+        { href: "/analytics", label: "Business overview", icon: BarChart3, exact: true },
+        { href: "/analytics/mis", label: "Management MIS", icon: BarChart3 },
+        { href: "/analytics/reports", label: "Report builder", icon: ListTodo },
+      ],
+    },
+  },
   {
     prefix: "/communication",
     group: {
