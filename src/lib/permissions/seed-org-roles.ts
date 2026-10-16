@@ -2,14 +2,16 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   PERMISSIONS,
   SYSTEM_ROLE_TEMPLATES,
+  systemRolePermissions,
 } from "@/lib/permissions/catalog";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
 /** Ensure global permission catalog exists (idempotent). */
 export async function ensurePermissionsSeeded(db: DbClient) {
-  const existingCount = await db.permission.count();
-  if (existingCount >= PERMISSIONS.length) {
+  // Compare codes, not counts: a renamed or removed code must not hide a missing one.
+  const existing = new Set((await db.permission.findMany({ select: { code: true } })).map((p) => p.code));
+  if (PERMISSIONS.every((p) => existing.has(p.code))) {
     return;
   }
 
@@ -62,10 +64,7 @@ export async function seedOrganizationRoles(
     });
     rolesByCode.set(template.code, role.id);
 
-    const permissionCodes =
-      template.permissions === "*"
-        ? allPermissions.map((p) => p.code)
-        : template.permissions;
+    const permissionCodes = systemRolePermissions(template.code);
 
     for (const code of permissionCodes) {
       const permission = byCode.get(code);

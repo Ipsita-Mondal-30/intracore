@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
 import { ensurePrismaUser } from "@/lib/auth/ensure-user";
 import { perfTime } from "@/lib/perf";
+import { systemRolePermissions } from "@/lib/permissions/catalog";
 
 export { assertSameOrganization } from "@/lib/tenant/assert";
 
@@ -72,29 +73,19 @@ export async function requireAuth(): Promise<SessionContext> {
   return ctx;
 }
 
-async function loadOrganizationAccess(
-  organizationId?: string,
+/**
+ * Membership + role + permissions for a user in an organization, straight from the DB.
+ * Used by request auth below, and directly by tests and background jobs.
+ */
+export async function buildTenantContext(
+  userId: string,
+  organizationId: string,
 ): Promise<TenantContext> {
-  const session = await requireAuth();
-  const orgId = organizationId ?? session.activeOrganizationId;
-
-  if (!orgId) {
-    throw new AppError(
-      "NO_ORGANIZATION",
-      "No active organization. Create or join an organization first.",
-      403,
-    );
-  }
-
   const timer = perfTime("prisma.membership+role+org");
   const membership = await prisma.organizationMember.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId: orgId,
-        userId: session.userId,
-      },
-    },
+    where: { organizationId_userId: { organizationId, userId } },
     include: {
+      user: { select: { name: true, email: true } },
       organization: { select: { name: true, currency: true } },
       role: {
         include: {
@@ -115,19 +106,15 @@ async function loadOrganizationAccess(
     );
   }
 
-  if (session.activeOrganizationId !== membership.organizationId) {
-    await prisma.user.update({
-      where: { id: session.userId },
-      data: { activeOrganizationId: membership.organizationId },
-    });
-  }
-
-  const permissions = new Set(
-    membership.role.permissions.map((rp) => rp.permission.code),
-  );
+  // System roles follow the code catalog, so permissions added in later releases
+  // reach existing organizations without a data backfill.
+  const permissions = new Set([
+    ...membership.role.permissions.map((rp) => rp.permission.code),
+    ...(membership.role.isSystem ? systemRolePermissions(membership.role.code) : []),
+  ]);
 
   return {
-    userId: session.userId,
+    userId,
     organizationId: membership.organizationId,
     membershipId: membership.id,
     roleId: membership.roleId,
@@ -136,9 +123,35 @@ async function loadOrganizationAccess(
     permissions,
     organizationName: membership.organization.name,
     organizationCurrency: membership.organization.currency,
-    userName: session.name ?? null,
-    userEmail: session.email ?? null,
+    userName: membership.user.name,
+    userEmail: membership.user.email,
   };
+}
+
+async function loadOrganizationAccess(
+  organizationId?: string,
+): Promise<TenantContext> {
+  const session = await requireAuth();
+  const orgId = organizationId ?? session.activeOrganizationId;
+
+  if (!orgId) {
+    throw new AppError(
+      "NO_ORGANIZATION",
+      "No active organization. Create or join an organization first.",
+      403,
+    );
+  }
+
+  const tenant = await buildTenantContext(session.userId, orgId);
+
+  if (session.activeOrganizationId !== tenant.organizationId) {
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { activeOrganizationId: tenant.organizationId },
+    });
+  }
+
+  return tenant;
 }
 
 /** Request-scoped tenant + RBAC. Pages should call this (or requirePermission), not getUser again. */

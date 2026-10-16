@@ -15,6 +15,7 @@ import {
   validateCallRecordingFile,
 } from "@/lib/storage/call-recordings";
 import { leadVisibilityWhere } from "@/features/leads/scope";
+import { assertLeadRefs } from "@/lib/tenant/refs";
 import type { ActionResult } from "@/features/auth/types";
 
 export async function createCallRecordAction(
@@ -262,6 +263,7 @@ export async function reengageLeadAction(
     const stageId = String(formData.get("stageId") ?? "").trim() || lead.stageId;
     const assignedUserId =
       String(formData.get("assignedUserId") ?? "").trim() || lead.assignedUserId;
+    await assertLeadRefs(tenant.organizationId, { stageId, assignedUserId });
     const nextCallDueRaw = String(formData.get("nextCallDueAt") ?? "").trim();
     const followUpRaw = String(formData.get("followUpAt") ?? "").trim();
     const nextCallDueAt = nextCallDueRaw ? new Date(nextCallDueRaw) : null;

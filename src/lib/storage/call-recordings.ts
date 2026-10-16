@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { putObject, removeObject, signedObjectUrl } from "@/lib/storage/objects";
 import { AppError } from "@/lib/errors";
 
 export const CALL_RECORDING_BUCKET = "lead-call-recordings";
@@ -58,45 +58,10 @@ export function buildCallRecordingPath(
   return `${organizationId}/${leadId}/${callRecordId}.${ext}`;
 }
 
-export async function uploadCallRecording(
-  path: string,
-  body: ArrayBuffer | Buffer,
-  mimeType: string,
-): Promise<void> {
-  const supabase = createAdminClient();
-  const { error } = await supabase.storage
-    .from(CALL_RECORDING_BUCKET)
-    .upload(path, body, { contentType: mimeType, upsert: true });
-  if (error) {
-    throw new AppError("UPLOAD_FAILED", error.message, 500);
-  }
-}
+export const uploadCallRecording = (path: string, body: ArrayBuffer | Buffer, mimeType: string) =>
+  putObject(CALL_RECORDING_BUCKET, path, body, mimeType);
 
-export async function getCallRecordingSignedUrl(
-  path: string,
-  expiresInSec = 3600,
-): Promise<{ signedUrl: string; expiresAt: string }> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.storage
-    .from(CALL_RECORDING_BUCKET)
-    .createSignedUrl(path, expiresInSec);
-  if (error || !data?.signedUrl) {
-    throw new AppError(
-      "SIGNED_URL_FAILED",
-      error?.message ?? "Failed to create signed URL",
-      500,
-    );
-  }
-  const expiresAt = new Date(Date.now() + expiresInSec * 1000).toISOString();
-  return { signedUrl: data.signedUrl, expiresAt };
-}
+export const getCallRecordingSignedUrl = (path: string, expiresInSec = 3600) =>
+  signedObjectUrl(CALL_RECORDING_BUCKET, path, expiresInSec);
 
-export async function deleteCallRecording(path: string): Promise<void> {
-  const supabase = createAdminClient();
-  const { error } = await supabase.storage
-    .from(CALL_RECORDING_BUCKET)
-    .remove([path]);
-  if (error) {
-    throw new AppError("DELETE_FAILED", error.message, 500);
-  }
-}
+export const deleteCallRecording = (path: string) => removeObject(CALL_RECORDING_BUCKET, path);

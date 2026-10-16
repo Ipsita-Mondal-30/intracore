@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  PERMISSIONS,
   SYSTEM_ROLE_TEMPLATES,
+  systemRolePermissions,
   type SystemRoleTemplate,
 } from "@/lib/permissions/catalog";
 
-function resolvePermissions(template: SystemRoleTemplate): string[] {
-  if (template.permissions === "*") {
-    return PERMISSIONS.map((p) => p.code);
-  }
-  return template.permissions;
-}
+const resolvePermissions = (template: SystemRoleTemplate) =>
+  systemRolePermissions(template.code);
 
 describe("role permission maps", () => {
   it("viewer cannot invite members or manage org", () => {
