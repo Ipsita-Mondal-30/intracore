@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -13,20 +14,37 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
         canvas: "var(--ic-canvas)",
-        surface: "var(--ic-surface)",
+        surface: {
+          DEFAULT: "var(--ic-surface)",
+          muted: "var(--ic-surface-muted)",
+        },
+        input: "var(--ic-input)",
+        overlay: "var(--ic-overlay)",
+        skeleton: "var(--ic-skeleton)",
         muted: "var(--ic-muted)",
         subtle: "var(--ic-subtle)",
-        border: "var(--ic-border)",
+        border: {
+          DEFAULT: "var(--ic-border)",
+          strong: "var(--ic-border-strong)",
+        },
         primary: {
           DEFAULT: "var(--ic-primary)",
           hover: "var(--ic-primary-hover)",
           soft: "var(--ic-primary-soft)",
           outline: "var(--ic-primary-outline)",
         },
-        success: "var(--ic-success)",
-        danger: "var(--ic-danger)",
-        warning: "var(--ic-warning)",
+        success: { DEFAULT: "var(--ic-success)", soft: "var(--ic-success-soft)" },
+        danger: { DEFAULT: "var(--ic-danger)", soft: "var(--ic-danger-soft)" },
+        warning: { DEFAULT: "var(--ic-warning)", soft: "var(--ic-warning-soft)", border: "var(--ic-warning-border)" },
+        neutral: { soft: "var(--ic-neutral-soft)", text: "var(--ic-neutral-text)" },
         "nav-active": "var(--ic-nav-active)",
+      },
+      // text-* gets the readable variant of each brand/status colour (fills keep white text).
+      textColor: {
+        primary: { DEFAULT: "var(--ic-primary-text)" },
+        success: { DEFAULT: "var(--ic-success-text)" },
+        danger: { DEFAULT: "var(--ic-danger-text)" },
+        warning: { DEFAULT: "var(--ic-warning-text)" },
       },
       borderRadius: {
         card: "var(--radius-card)",
