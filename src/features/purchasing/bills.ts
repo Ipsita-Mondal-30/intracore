@@ -6,7 +6,10 @@ import { assertCan, assertCompanyAccess, companyScopeWhere, type AccessContext }
 import { audit } from "@/lib/audit";
 import { listArgs, listQuerySchema, paginate, searchWhere } from "@/lib/api/list";
 import { nextDocumentNumber } from "@/lib/numbering";
-import { dec, isIntraState, zDecimal } from "@/lib/money";
+import { dec, isIntraState, money, zDecimal } from "@/lib/money";
+import { companySettings } from "@/lib/settings";
+import { isStocked } from "@/features/inventory/stock";
+import { isJournaled, postJournal, reverseJournal, today, type LedgerLine } from "@/features/finance/ledger";
 import { priceLines, type LineInputData } from "@/features/sales/pricing";
 
 const S = VendorBillStatus;
@@ -182,12 +185,34 @@ async function lockBill(tx: Prisma.TransactionClient, ctx: AccessContext, id: st
  * Three-way match on posting: for every line tied to a PO line, the total billed may
  * not exceed what was received net of returns. Retry-safe (POSTED is returned as is).
  */
+/**
+ * Approve a draft bill (needed before posting when its total exceeds
+ * settings.purchase.billApprovalAmount). The author cannot approve their own bill.
+ */
+export async function approveVendorBill(ctx: AccessContext, id: string) {
+  assertCan(ctx, "vendor_bill.approve");
+  return prisma.$transaction(async (tx) => {
+    const bill = await lockBill(tx, ctx, id);
+    if (bill.status !== S.DRAFT) throw new AppError("INVALID_STATE", `A ${bill.status} bill cannot be approved`, 422);
+    if (bill.approvedAt) return bill;
+    if (bill.createdById === ctx.userId && !ctx.isOwner) throw new AppError("FORBIDDEN", "You cannot approve a bill you entered", 403);
+    const approved = await tx.vendorBill.update({ where: { id }, data: { approvedAt: new Date(), approvedById: ctx.userId } });
+    await audit(tx, ctx, { action: "vendor_bill.approved", entity: "vendor_bill", entityId: id, companyId: bill.companyId, next: { approvedById: ctx.userId } });
+    return approved;
+  });
+}
+
 export async function postVendorBill(ctx: AccessContext, id: string) {
   assertCan(ctx, "vendor_bill.post");
   return prisma.$transaction(async (tx) => {
     const bill = await lockBill(tx, ctx, id);
     if (bill.status === S.POSTED) return bill;
     if (bill.status !== S.DRAFT) throw new AppError("INVALID_STATE", `A ${bill.status} bill cannot be posted`, 422);
+    const company = await tx.company.findUniqueOrThrow({ where: { id: bill.companyId }, select: { settings: true } });
+    const limit = companySettings(company.settings).purchase.billApprovalAmount;
+    if (limit !== null && bill.grandTotal.gt(limit) && !bill.approvedAt) {
+      throw new AppError("APPROVAL_REQUIRED", `Bills above ${limit} need approval before posting`, 422);
+    }
     if (bill.purchaseOrderId) await tx.$queryRaw`SELECT 1 FROM "purchase_orders" WHERE "id" = ${bill.purchaseOrderId} FOR UPDATE`;
 
     for (const line of bill.lines) {
@@ -203,7 +228,16 @@ export async function postVendorBill(ctx: AccessContext, id: string) {
       }
       await tx.purchaseOrderLine.update({ where: { id: po.id }, data: { billedQty: { increment: line.quantity } } });
     }
-    const posted = await tx.vendorBill.update({ where: { id }, data: { status: S.POSTED, postedAt: new Date() } });
+    const journal = (await isJournaled(tx, bill.companyId, bill.billDate))
+      ? await postJournal(tx, { organizationId: ctx.organizationId, companyId: bill.companyId, userId: ctx.userId }, {
+          date: bill.billDate,
+          sourceType: "VENDOR_BILL",
+          sourceId: bill.id,
+          memo: `Bill ${bill.number} (${bill.vendorInvoiceNumber})`,
+          lines: await purchaseLines(tx, bill, "bill"),
+        })
+      : null;
+    const posted = await tx.vendorBill.update({ where: { id }, data: { status: S.POSTED, postedAt: new Date(), journalEntryId: journal?.id ?? null } });
     await audit(tx, ctx, { action: "vendor_bill.posted", entity: "vendor_bill", entityId: id, companyId: bill.companyId, previous: { status: bill.status }, next: { status: S.POSTED } });
     return posted;
   });
@@ -218,6 +252,15 @@ export async function cancelVendorBill(ctx: AccessContext, id: string, input: un
     const bill = await lockBill(tx, ctx, id);
     if (bill.status === S.CANCELLED) return bill;
     if (bill.status === S.POSTED) {
+      if (dec(bill.paidAmount).gt(0) || dec(bill.debitedAmount).gt(0)) {
+        throw new AppError("INVALID_STATE", "Payments or debit notes are applied to this bill; reverse them first", 422);
+      }
+      if ((await tx.debitNote.count({ where: { billId: id, status: S.POSTED } })) > 0) {
+        throw new AppError("INVALID_STATE", "Cancel the posted debit notes first", 422);
+      }
+      if (bill.journalEntryId) {
+        await reverseJournal(tx, { organizationId: ctx.organizationId, companyId: bill.companyId, userId: ctx.userId }, bill.journalEntryId, today(), `Cancellation of ${bill.number}`);
+      }
       if (bill.purchaseOrderId) await tx.$queryRaw`SELECT 1 FROM "purchase_orders" WHERE "id" = ${bill.purchaseOrderId} FOR UPDATE`;
       for (const line of bill.lines) {
         if (line.purchaseOrderLineId) {
@@ -229,4 +272,42 @@ export async function cancelVendorBill(ctx: AccessContext, id: string, input: un
     await audit(tx, ctx, { action: "vendor_bill.cancelled", entity: "vendor_bill", entityId: id, companyId: bill.companyId, previous: { status: bill.status }, next: { status: S.CANCELLED, reason } });
     return cancelled;
   });
+}
+
+/**
+ * Journal lines for a bill (or, mirrored, a debit note). Stocked goods received on a
+ * PO clear GRNI at the receipt cost (PO net unit price); any difference to the billed
+ * value goes to purchase price variance. Other lines are purchase expenses. GST goes
+ * to input tax (CGST/SGST or IGST as billed); the vendor's AP account takes the total.
+ */
+export async function purchaseLines(
+  tx: Prisma.TransactionClient,
+  doc: {
+    vendorId: string;
+    grandTotal: Prisma.Decimal;
+    lines: { purchaseOrderLineId?: string | null; billLineId?: string | null; productId: string | null; quantity: Prisma.Decimal; taxableAmount: Prisma.Decimal; cgstAmount: Prisma.Decimal; sgstAmount: Prisma.Decimal; igstAmount: Prisma.Decimal }[];
+  },
+  kind: "bill" | "debit",
+): Promise<LedgerLine[]> {
+  const side = (v: Prisma.Decimal.Value) => (kind === "bill" ? { debit: v } : { credit: v });
+  const out: LedgerLine[] = [];
+  for (const line of doc.lines) {
+    let poLineId = line.purchaseOrderLineId ?? null;
+    if (!poLineId && line.billLineId) {
+      poLineId = (await tx.vendorBillLine.findUnique({ where: { id: line.billLineId }, select: { purchaseOrderLineId: true } }))?.purchaseOrderLineId ?? null;
+    }
+    const poLine = poLineId ? await tx.purchaseOrderLine.findUnique({ where: { id: poLineId }, include: { product: true } }) : null;
+    if (poLine && isStocked(poLine.product)) {
+      const clearing = money(dec(line.quantity).mul(poLine.taxableAmount).div(poLine.quantity));
+      out.push({ account: "GRNI", ...side(clearing) });
+      out.push({ account: "PRICE_VARIANCE", ...side(dec(line.taxableAmount).sub(clearing)) });
+    } else {
+      out.push({ account: "PURCHASE_EXPENSE", ...side(line.taxableAmount) });
+    }
+    out.push({ account: "INPUT_CGST", ...side(line.cgstAmount) });
+    out.push({ account: "INPUT_SGST", ...side(line.sgstAmount) });
+    out.push({ account: "INPUT_IGST", ...side(line.igstAmount) });
+  }
+  out.push({ account: "ACCOUNTS_PAYABLE", ...(kind === "bill" ? { credit: doc.grandTotal } : { debit: doc.grandTotal }), vendorId: doc.vendorId });
+  return out;
 }

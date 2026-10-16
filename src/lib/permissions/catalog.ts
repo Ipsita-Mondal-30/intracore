@@ -111,7 +111,14 @@ export const PERMISSIONS: PermissionSeed[] = [
   ...perms("inventory", "view", "create", "post", "administer"),
   ...perms("vendor", "view", "create", "update", "delete"),
   ...perms("purchase_order", "view", "create", "update", "approve", "cancel"),
-  ...perms("vendor_bill", "view", "create", "post", "cancel"),
+  ...perms("vendor_bill", "view", "create", "approve", "post", "cancel"),
+
+  // Finance
+  ...perms("finance", "view", "post", "report", "administer"),
+  ...perms("invoice", "view", "create", "post", "cancel"),
+  ...perms("receipt", "view", "create", "cancel"),
+  ...perms("payment", "view", "create", "cancel"),
+  ...perms("expense", "view", "create", "approve", "pay"),
 ];
 
 /** Every `module.action` code of the given modules (optionally only some actions). */
@@ -179,6 +186,10 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "crm.report",
       ...codes(["customer", "contact", "opportunity", "activity", "quotation", "sales_order"]),
       "inventory.view",
+      "invoice.view",
+      "receipt.view",
+      "expense.view",
+      "expense.create",
     ],
   },
   {
@@ -205,6 +216,9 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       ...codes(["customer", "contact", "opportunity", "quotation"], ["view", "create", "update"]),
       ...codes(["sales_order"], ["view", "create"]),
       "inventory.view",
+      "invoice.view",
+      "expense.view",
+      "expense.create",
     ],
   },
   {
@@ -301,6 +315,8 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "sales_order.view",
       "purchase_order.view",
       "vendor.view",
+      "expense.view",
+      "expense.create",
     ],
   },
   {
@@ -320,6 +336,31 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "product.update",
       ...codes(["vendor", "purchase_order", "vendor_bill"]),
       ...codes(["inventory"], ["view", "create", "post"]),
+      "payment.view",
+      "expense.view",
+      "expense.create",
+    ],
+  },
+  {
+    code: "accountant",
+    name: "Accountant",
+    description: "Invoices, receipts, bills, payments, expenses, ledger and GST reports",
+    permissions: [
+      "org.view",
+      "dashboard.view",
+      "company.view",
+      "task.create",
+      "audit.view",
+      "document.view",
+      "document.create",
+      ...codes(["finance", "invoice", "receipt", "payment", "expense"]),
+      ...codes(["vendor_bill"]),
+      "customer.view",
+      "vendor.view",
+      "product.view",
+      "sales_order.view",
+      "purchase_order.view",
+      "inventory.view",
     ],
   },
   {

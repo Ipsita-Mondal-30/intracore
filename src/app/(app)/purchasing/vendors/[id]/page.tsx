@@ -39,6 +39,9 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
             {can(ctx, "purchase_order.create") && vendor.status === "ACTIVE" ? (
               <Link href={`/purchasing/orders/new?vendorId=${id}`} className="text-sm text-primary hover:underline">New purchase order</Link>
             ) : null}
+            {can(ctx, "finance.report") ? (
+              <Link href={`/finance/statements/vendors/${id}`} className="text-sm text-primary hover:underline">Statement</Link>
+            ) : null}
             {can(ctx, "vendor.delete") && vendor.status !== "ARCHIVED" ? (
               <ActionButton path={`/vendors/${id}`} method="PATCH" label="Archive" body={{ status: "ARCHIVED" }} confirm="Archive this vendor?" variant="ghost" />
             ) : null}

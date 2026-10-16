@@ -17,8 +17,16 @@ export async function seedCatalogDefaults(tx: Prisma.TransactionClient, organiza
     data: DEFAULT_UOMS.map(([code, name]) => ({ organizationId, code, name })),
     skipDuplicates: true,
   });
-  await tx.taxRate.createMany({
-    data: DEFAULT_TAX_RATES.map((rate) => ({ organizationId, name: `GST ${rate}%`, rate })),
-    skipDuplicates: true,
-  });
+  for (const rate of DEFAULT_TAX_RATES) {
+    const name = `GST ${rate}%`;
+    if (await tx.taxRate.findUnique({ where: { organizationId_name: { organizationId, name } } })) continue;
+    await tx.taxRate.create({
+      data: {
+        organizationId,
+        name,
+        rate,
+        versions: { create: { rate, effectiveFrom: new Date("2017-07-01T00:00:00.000Z") } },
+      },
+    });
+  }
 }

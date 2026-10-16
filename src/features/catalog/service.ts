@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProductType, RecordStatus, TrackingMode, type Prisma } from "@prisma/client";
+import { ProductType, RecordStatus, TaxKind, TrackingMode, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
 import { assertCan, type AccessContext } from "@/lib/access";
@@ -132,6 +132,7 @@ const categorySchema = z.object({ name: text(120).min(1), parentId: z.string().m
 const taxRateSchema = z.object({
   name: text(80).min(1),
   rate: zDecimal({ max: 100, places: 3 }),
+  kind: z.nativeEnum(TaxKind).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -156,10 +157,18 @@ export const createCategory = (ctx: AccessContext, input: unknown) =>
     tx.productCategory.create({ data: { ...categorySchema.parse(input), organizationId: ctx.organizationId } }),
   );
 
+/** New tax codes start with a version effective from the start of GST (1 Jul 2017). */
 export const createTaxRate = (ctx: AccessContext, input: unknown) =>
-  createLookup(ctx, "tax_rate", (tx) =>
-    tx.taxRate.create({ data: { ...taxRateSchema.parse(input), organizationId: ctx.organizationId } }),
-  );
+  createLookup(ctx, "tax_rate", (tx) => {
+    const data = taxRateSchema.parse(input);
+    return tx.taxRate.create({
+      data: {
+        ...data,
+        organizationId: ctx.organizationId,
+        versions: { create: { rate: data.rate, effectiveFrom: new Date("2017-07-01T00:00:00.000Z") } },
+      },
+    });
+  });
 
 /** Only the active flag/name may change: lines snapshot the rate, so history stays correct. */
 export async function updateTaxRate(ctx: AccessContext, id: string, input: unknown) {

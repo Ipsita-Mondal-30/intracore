@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db/prisma";
 import { isAppError } from "@/lib/errors";
 import { Decimal } from "@/lib/money";
 import { can, getAccessContext } from "@/lib/access";
@@ -18,7 +19,7 @@ import { ActionButton } from "@/components/erp/action-button";
 import { LinesEditor } from "@/components/erp/lines-editor";
 import { StatusBadge } from "@/components/erp/status-badge";
 import { AuditTrail, DocumentLines, DocumentTotals } from "@/components/erp/document-view";
-import { dateInput, formatDate, formatQty, humanize } from "@/components/erp/format";
+import { dateInput, formatDate, formatMoney, formatQty, humanize } from "@/components/erp/format";
 
 export default async function SalesOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,6 +43,15 @@ export default async function SalesOrderPage({ params }: { params: Promise<{ id:
     .filter((l) => l.product)
     .map((l) => ({ line: l, open: Decimal.max(l.quantity.sub(l.deliveredQty), 0) }));
   const openLines = productLines.filter((p) => p.open.gt(0));
+
+  const invoices = can(ctx, "invoice.view")
+    ? await prisma.salesInvoice.findMany({
+        where: { organizationId: ctx.organizationId, salesOrderId: id },
+        select: { id: true, number: true, status: true, grandTotal: true, invoiceDate: true },
+        orderBy: { createdAt: "asc" },
+      })
+    : null;
+  const invoiceable = ["CONFIRMED", "PARTIALLY_DELIVERED", "DELIVERED"].includes(order.status) && can(ctx, "invoice.create");
 
   const ordered = order.lines.reduce((sum, l) => sum + Number(l.quantity.toString()), 0);
   const delivered = order.lines.reduce((sum, l) => sum + Number(l.deliveredQty.toString()), 0);
@@ -83,6 +93,9 @@ export default async function SalesOrderPage({ params }: { params: Promise<{ id:
             <Link href={`/print/orders/${id}`} target="_blank" className="text-sm text-primary hover:underline">Print</Link>
             {order.status === "DRAFT" && can(ctx, "sales_order.update") ? (
               <ActionButton path={`/sales-orders/${id}/confirm`} label="Confirm" variant="default" />
+            ) : null}
+            {invoiceable ? (
+              <ActionButton path={`/sales-orders/${id}/invoice`} label="Create invoice" confirm="Create a draft invoice for everything delivered (goods) or ordered (services) and not yet invoiced?" redirectTo="/finance/invoices/:id" />
             ) : null}
             {openForChange && can(ctx, "sales_order.cancel") ? (
               <ActionButton path={`/sales-orders/${id}/cancel`} label="Cancel order" prompt="Cancellation reason" variant="ghost" />
@@ -245,6 +258,25 @@ export default async function SalesOrderPage({ params }: { params: Promise<{ id:
               ) : null}
             </CardContent>
           </Card>
+          {invoices ? (
+            <Card>
+              <CardHeader><CardTitle>Invoices</CardTitle></CardHeader>
+              <CardContent>
+                {invoices.length === 0 ? <p className="text-sm text-muted">Not invoiced yet.</p> : (
+                  <ul className="space-y-1 text-sm">
+                    {invoices.map((inv) => (
+                      <li key={inv.id} className="flex flex-wrap items-center gap-2">
+                        <Link href={`/finance/invoices/${inv.id}`} className="text-primary hover:underline">{inv.number ?? "Draft"}</Link>
+                        <StatusBadge status={inv.status} />
+                        <span className="text-muted">{formatMoney(inv.grandTotal, order.currency)}</span>
+                        <span className="text-2xs text-subtle">{formatDate(inv.invoiceDate)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
           <Card>
             <CardHeader><CardTitle>History</CardTitle></CardHeader>
             <CardContent><AuditTrail ctx={ctx} entity="sales_order" entityId={id} /></CardContent>
