@@ -2,6 +2,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import type { Metadata } from "next";
 import "./globals.css";
 import { QueryProvider } from "@/lib/query/provider";
+import { themeScript } from "@/lib/theme";
 
 const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -20,7 +21,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // The theme script sets class="dark" before hydration, so <html> attributes differ by design.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${sans.variable} font-sans`}>
         <QueryProvider>{children}</QueryProvider>
       </body>
