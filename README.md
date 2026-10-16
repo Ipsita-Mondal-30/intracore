@@ -84,6 +84,7 @@ Without these vars, actions still succeed; invites show a copyable URL fallback.
 | `ENCRYPTION_KEY` | Random 32+ char string |
 | `RESEND_API_KEY` | Resend API key (optional) |
 | `RESEND_FROM_EMAIL` | Verified sender address (optional) |
+| `CRON_SECRET` | Random 32+ char string for `/api/v1/jobs/run` and `/api/health?db=1` |
 
 3. In Supabase → **Authentication → URL Configuration**, add:
    - Site URL: your Vercel domain
@@ -91,10 +92,16 @@ Without these vars, actions still succeed; invites show a copyable URL fallback.
 
 4. Redeploy after saving env vars. If config is missing, the app shows `/setup` instead of a generic 500.
 
-5. After first deploy, run migrations against production Postgres:
+5. Run migrations as a **separate release step** against production Postgres (the build
+   no longer migrates, so preview builds cannot change the production schema):
    ```bash
    npx prisma migrate deploy
    ```
+6. Run `supabase/migrations/*.sql` in the Supabase SQL editor (private storage buckets).
+7. Schedule background jobs: call `POST /api/v1/jobs/run` with
+   `Authorization: Bearer $CRON_SECRET` (Vercel Cron, Supabase pg_cron + pg_net, or any
+   scheduler). Daily is enough for quotation expiry and low-stock alerts; run it more often
+   if you rely on task reminders.
 
 Check deployment config: `GET /api/health` returns `{ missingEnv: [...] }` when something is not set.
 
@@ -112,3 +119,23 @@ npm run build
 npm test
 npm run lint
 ```
+
+## ERP modules
+
+Companies & branches (multi-GSTIN), customers, contacts, opportunities, products, quotations,
+sales orders, inventory (warehouses, stock ledger, reservations, batches/serials) and
+purchasing (vendors, purchase orders, goods receipts, vendor bills). REST API under
+`/api/v1` — see [docs/API.md](docs/API.md); stock rules in [docs/INVENTORY.md](docs/INVENTORY.md).
+
+## Tests
+
+Tests run against a throwaway local Postgres (never the database in `.env`):
+
+```bash
+brew install postgresql@17          # once
+# start a cluster on port 54329 (see .env.test), then:
+./scripts/reset-test-db.sh          # recreate test DBs and apply all migrations
+npm test
+```
+
+`tests/setup.ts` refuses to run if `DATABASE_URL` is not on localhost.

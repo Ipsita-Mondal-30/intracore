@@ -6,6 +6,7 @@ import { assertCan, type AccessContext } from "@/lib/access";
 import { audit, changes } from "@/lib/audit";
 import { companySettings, companySettingsSchema } from "@/lib/settings";
 import { DOCUMENT_PREFIXES } from "@/lib/numbering";
+import { seedDefaultWarehouse } from "@/features/inventory/warehouses";
 
 const optional = (schema: z.ZodString) =>
   schema.optional().nullable().or(z.literal("").transform(() => null));
@@ -117,6 +118,7 @@ export async function createCompany(ctx: AccessContext, input: unknown) {
         address: company.address,
       },
     });
+    await seedDefaultWarehouse(tx, company);
     if (!ctx.isOwner) {
       // The creator administers what they create; owners already see every company.
       await tx.memberScope.create({
@@ -376,5 +378,6 @@ export async function seedDefaultCompany(
   await tx.branch.create({
     data: { organizationId: organization.id, companyId: company.id, code: "HO", name: "Head Office" },
   });
+  await seedDefaultWarehouse(tx, company);
   return company;
 }

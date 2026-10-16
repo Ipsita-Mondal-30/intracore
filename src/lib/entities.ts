@@ -40,6 +40,16 @@ const resolvers: Record<string, Resolver> = {
     prisma.quotation.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
   sales_order: companyRecord("sales_order.view", (ctx, id) =>
     prisma.salesOrder.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  vendor: orgRecord("vendor.view", (ctx, id) =>
+    prisma.vendor.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { id: true } })),
+  warehouse: companyRecord("inventory.view", (ctx, id) =>
+    prisma.warehouse.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  stock_entry: companyRecord("inventory.view", (ctx, id) =>
+    prisma.stockEntry.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  purchase_order: companyRecord("purchase_order.view", (ctx, id) =>
+    prisma.purchaseOrder.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  vendor_bill: companyRecord("vendor_bill.view", (ctx, id) =>
+    prisma.vendorBill.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
 };
 
 /** Org-level record: caller needs the view permission and the row must be in the tenant. */

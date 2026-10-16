@@ -7,10 +7,14 @@ import { audit } from "@/lib/audit";
 import { listArgs, listQuerySchema, paginate, searchWhere } from "@/lib/api/list";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { linesSchema, partyHeaderSchema, priceLines, resolveSalesParty } from "@/features/sales/pricing";
+import { releaseSalesOrder, reserveSalesOrder } from "@/features/inventory/stock";
+import { defaultWarehouseId } from "@/features/inventory/warehouses";
 
 const S = SalesOrderStatus;
 
 const headerSchema = partyHeaderSchema.extend({
+  /** Ships and reserves from this warehouse; required to confirm orders with stocked goods */
+  warehouseId: z.string().min(1).nullish(),
   orderDate: z.coerce.date().optional(),
   expectedDeliveryDate: z.coerce.date().nullish(),
   customerPoNumber: z.string().trim().max(64).nullish(),
@@ -34,7 +38,11 @@ const listSchema = listQuerySchema.extend({
 export const salesOrderInclude = {
   lines: {
     orderBy: { sortOrder: "asc" },
-    include: { product: { select: { id: true, sku: true, name: true, hsnCode: true } }, uom: { select: { code: true } } },
+    include: {
+      product: { select: { id: true, sku: true, name: true, hsnCode: true, type: true, trackInventory: true, trackingMode: true } },
+      uom: { select: { code: true } },
+      reservation: { select: { quantity: true } },
+    },
   },
   customer: true,
   contact: { select: { id: true, fullName: true, email: true, phone: true } },
@@ -42,6 +50,8 @@ export const salesOrderInclude = {
   branch: true,
   quotation: { select: { id: true, number: true, revision: true } },
   createdBy: { select: { id: true, name: true, email: true } },
+  warehouse: { select: { id: true, code: true, name: true } },
+  stockEntries: { select: { id: true, number: true, type: true, status: true, postedAt: true }, orderBy: { createdAt: "asc" } },
 } satisfies Prisma.SalesOrderInclude;
 
 export async function listSalesOrders(ctx: AccessContext, query: unknown) {
@@ -87,6 +97,7 @@ export async function createSalesOrder(ctx: AccessContext, input: unknown) {
   const data = createSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     const party = await resolveSalesParty(tx, ctx, data);
+    await assertOrderWarehouse(tx, ctx, data.companyId, data.warehouseId);
     const { lines: lineInputs, ...header } = data;
     const priced = await priceLines(tx, ctx.organizationId, lineInputs, { intraState: party.intraState, customerId: data.customerId });
     const order = await tx.salesOrder.create({
@@ -94,6 +105,7 @@ export async function createSalesOrder(ctx: AccessContext, input: unknown) {
         ...header,
         organizationId: ctx.organizationId,
         number: await nextDocumentNumber(tx, ctx.organizationId, data.companyId, "sales_order"),
+        warehouseId: data.warehouseId ?? (await defaultWarehouseId(tx, ctx.organizationId, data.companyId, data.branchId)),
         currency: data.currency ?? party.currency,
         placeOfSupplyState: party.placeOfSupplyState,
         ...priced.totals,
@@ -142,7 +154,10 @@ export async function updateSalesOrder(ctx: AccessContext, id: string, input: un
       ? await priceLines(tx, ctx.organizationId, lineInputs, { intraState: party.intraState, customerId: header.customerId })
       : null;
 
+    if (data.warehouseId !== undefined) await assertOrderWarehouse(tx, ctx, before.companyId, data.warehouseId);
+    // Replacing lines drops their reservations (cascade); a confirmed order re-reserves below.
     if (priced) await tx.salesOrderLine.deleteMany({ where: { salesOrderId: id } });
+    else if (amendment && data.warehouseId !== undefined) await releaseSalesOrder(tx, id);
     const order = await tx.salesOrder.update({
       where: { id },
       data: {
@@ -155,6 +170,7 @@ export async function updateSalesOrder(ctx: AccessContext, id: string, input: un
       },
       include: { lines: true },
     });
+    if (amendment) await reserveSalesOrder(tx, id);
     await audit(tx, ctx, {
       action: amendment ? "sales_order.amended" : "sales_order.updated",
       entity: "sales_order",
@@ -176,8 +192,9 @@ export async function confirmSalesOrder(ctx: AccessContext, id: string) {
     const order = await lockSalesOrder(tx, ctx, id);
     if (order.status !== S.DRAFT) throw new AppError("INVALID_STATE", `A ${order.status} order cannot be confirmed`, 422);
     const updated = await tx.salesOrder.update({ where: { id }, data: { status: S.CONFIRMED, confirmedAt: new Date() } });
-    await audit(tx, ctx, { action: "sales_order.confirmed", entity: "sales_order", entityId: id, companyId: order.companyId, previous: { status: order.status }, next: { status: S.CONFIRMED } });
-    return updated;
+    const reservations = await reserveSalesOrder(tx, id);
+    await audit(tx, ctx, { action: "sales_order.confirmed", entity: "sales_order", entityId: id, companyId: order.companyId, previous: { status: order.status }, next: { status: S.CONFIRMED, reservations } });
+    return { ...updated, reservations };
   });
 }
 
@@ -195,8 +212,33 @@ export async function cancelSalesOrder(ctx: AccessContext, id: string, input: un
     }
     const lines = await tx.salesOrderLine.findMany({ where: { salesOrderId: id } });
     if (hasDeliveries(lines)) throw new AppError("INVALID_STATE", "Orders with deliveries cannot be cancelled", 422);
+    await releaseSalesOrder(tx, id);
     const updated = await tx.salesOrder.update({ where: { id }, data: { status: S.CANCELLED, cancelledAt: new Date(), cancelReason: reason } });
     await audit(tx, ctx, { action: "sales_order.cancelled", entity: "sales_order", entityId: id, companyId: order.companyId, previous: { status: order.status }, next: { status: S.CANCELLED, reason } });
     return updated;
+  });
+}
+
+async function assertOrderWarehouse(tx: Prisma.TransactionClient, ctx: AccessContext, companyId: string, warehouseId?: string | null) {
+  if (!warehouseId) return;
+  const warehouse = await tx.warehouse.findFirst({ where: { id: warehouseId, companyId, organizationId: ctx.organizationId }, select: { isActive: true } });
+  if (!warehouse) throw new AppError("NOT_FOUND", "Warehouse not found in this company", 404);
+  if (!warehouse.isActive) throw new AppError("INVALID_STATE", "Warehouse is inactive", 422);
+}
+
+/**
+ * Top up reservations of a confirmed order (e.g. after new stock arrived). Idempotent:
+ * reservations never exceed the open (ordered − delivered) quantity.
+ */
+export async function reserveSalesOrderStock(ctx: AccessContext, id: string) {
+  assertCan(ctx, "sales_order.update");
+  return prisma.$transaction(async (tx) => {
+    const order = await lockSalesOrder(tx, ctx, id);
+    if (order.status !== S.CONFIRMED && order.status !== S.PARTIALLY_DELIVERED) {
+      throw new AppError("INVALID_STATE", `A ${order.status} order holds no reservations`, 422);
+    }
+    const reservations = await reserveSalesOrder(tx, id);
+    await audit(tx, ctx, { action: "sales_order.reserved", entity: "sales_order", entityId: id, companyId: order.companyId, next: { reservations } });
+    return { salesOrderId: id, reservations };
   });
 }

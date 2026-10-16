@@ -32,6 +32,7 @@ const modules = [
   { href: "/crm/customers", label: "CRM", color: "bg-emerald-500" },
   { href: "/sales/quotations", label: "Sales", color: "bg-sky-500" },
   { href: "/inventory/products", label: "Inventory", color: "bg-amber-500" },
+  { href: "/purchasing/orders", label: "Purchasing", color: "bg-rose-500" },
   {
     href: "/settings/organization",
     label: "Organization",
@@ -178,7 +179,24 @@ const sectionNav: { prefix: string; group: NavGroup }[] = [
     prefix: "/inventory",
     group: {
       title: "INVENTORY",
-      items: [{ href: "/inventory/products", label: "Products", icon: Package }],
+      items: [
+        { href: "/inventory/products", label: "Products", icon: Package },
+        { href: "/inventory/stock", label: "Stock levels", icon: BarChart3 },
+        { href: "/inventory/entries", label: "Stock entries", icon: ListTodo },
+        { href: "/inventory/reorder", label: "Reorder", icon: CalendarClock },
+        { href: "/inventory/warehouses", label: "Warehouses", icon: Building2 },
+      ],
+    },
+  },
+  {
+    prefix: "/purchasing",
+    group: {
+      title: "PURCHASING",
+      items: [
+        { href: "/purchasing/vendors", label: "Vendors", icon: Users },
+        { href: "/purchasing/orders", label: "Purchase orders", icon: ListTodo },
+        { href: "/purchasing/bills", label: "Vendor bills", icon: CheckCircle2 },
+      ],
     },
   },
 ];

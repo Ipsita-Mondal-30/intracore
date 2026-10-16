@@ -106,6 +106,12 @@ export const PERMISSIONS: PermissionSeed[] = [
   // Sales
   ...perms("quotation", "view", "create", "update", "approve", "delete", "export"),
   ...perms("sales_order", "view", "create", "update", "cancel", "export"),
+
+  // Inventory & purchasing
+  ...perms("inventory", "view", "create", "post", "administer"),
+  ...perms("vendor", "view", "create", "update", "delete"),
+  ...perms("purchase_order", "view", "create", "update", "approve", "cancel"),
+  ...perms("vendor_bill", "view", "create", "post", "cancel"),
 ];
 
 /** Every `module.action` code of the given modules (optionally only some actions). */
@@ -172,6 +178,7 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "product.view",
       "crm.report",
       ...codes(["customer", "contact", "opportunity", "activity", "quotation", "sales_order"]),
+      "inventory.view",
     ],
   },
   {
@@ -197,6 +204,7 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "activity.create",
       ...codes(["customer", "contact", "opportunity", "quotation"], ["view", "create", "update"]),
       ...codes(["sales_order"], ["view", "create"]),
+      "inventory.view",
     ],
   },
   {
@@ -275,6 +283,43 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "contact.view",
       "activity.create",
       "task.create",
+    ],
+  },
+  {
+    code: "inventory_manager",
+    name: "Inventory Manager",
+    description: "Products, warehouses, stock entries and deliveries",
+    permissions: [
+      "org.view",
+      "dashboard.view",
+      "company.view",
+      "task.create",
+      "document.view",
+      "document.create",
+      ...codes(["product", "inventory"]),
+      "catalog.administer",
+      "sales_order.view",
+      "purchase_order.view",
+      "vendor.view",
+    ],
+  },
+  {
+    code: "purchase_manager",
+    name: "Purchase Manager",
+    description: "Vendors, purchase orders, receipts and vendor bills",
+    permissions: [
+      "org.view",
+      "dashboard.view",
+      "company.view",
+      "task.create",
+      "task.view_all",
+      "document.view",
+      "document.create",
+      "product.view",
+      "product.create",
+      "product.update",
+      ...codes(["vendor", "purchase_order", "vendor_bill"]),
+      ...codes(["inventory"], ["view", "create", "post"]),
     ],
   },
   {
