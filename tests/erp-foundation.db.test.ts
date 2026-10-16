@@ -174,6 +174,14 @@ describe("audit trail", () => {
     ).rejects.toThrow();
     await updateCompany(ctx, a.company.id, { settings: { inventory: { allowNegativeStock: false } } });
   });
+
+  it("keeps untouched keys of a patched section and refuses finance settings", async () => {
+    const ctx = await a.ctx(a.ownerId);
+    await updateCompany(ctx, a.company.id, { settings: { quotation: { approvalDiscountPercent: 20, defaultValidityDays: 45 } } });
+    const updated = await updateCompany(ctx, a.company.id, { settings: { quotation: { approvalAmount: 5000 } } });
+    expect(updated.settings).toMatchObject({ quotation: { approvalDiscountPercent: 20, defaultValidityDays: 45, approvalAmount: 5000 } });
+    await expect(updateCompany(ctx, a.company.id, { settings: { finance: { enabled: true } } })).rejects.toThrow(/finance setup/);
+  });
 });
 
 describe("transactions", () => {

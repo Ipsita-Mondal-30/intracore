@@ -15,6 +15,8 @@ import { dispatchWorkflows } from "@/features/automation/engine";
 import { escalateApprovals } from "@/features/automation/approvals";
 import { startDueCampaigns } from "@/features/marketing/campaigns";
 import { expireLoyaltyPoints } from "@/features/marketing/loyalty";
+import { applyRetentionPolicies } from "@/features/admin/retention";
+import { purgeExpiredExports } from "@/features/reports/exports";
 
 /**
  * Background jobs. Each is idempotent and safe to run on any schedule; the runner is
@@ -37,6 +39,8 @@ export const JOBS: Record<string, () => Promise<unknown>> = {
   "approval-escalation": () => escalateApprovals(),
   "campaign-scheduler": () => startDueCampaigns(),
   "loyalty-expiry": () => expireLoyaltyPoints(),
+  retention: () => applyRetentionPolicies(),
+  "export-expiry": () => purgeExpiredExports(),
 };
 
 export async function runJobs(names: string[]) {

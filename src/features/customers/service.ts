@@ -402,7 +402,8 @@ export async function getCrmSettings(ctx: AccessContext) {
 
 export async function updateCrmSettings(ctx: AccessContext, input: unknown) {
   assertCan(ctx, "crm.administer");
-  const next = orgSettingsSchema.parse(input);
+  // Only the CRM section: parsing the whole schema would reset other sections (e.g. loyalty) to defaults.
+  const next = orgSettingsSchema.pick({ duplicates: true }).parse(input);
   return prisma.$transaction(async (tx) => {
     const before = await tx.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } });
     const settings = { ...orgSettings(before.settings), ...next };

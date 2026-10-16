@@ -11,6 +11,12 @@ import { Label } from "@/components/ui/label";
 
 const initial: ActionResult | null = null;
 
+/** Same-origin path from ?callbackUrl= (never an absolute or protocol-relative URL). */
+function safeCallback(): string {
+  const raw = new URLSearchParams(window.location.search).get("callbackUrl");
+  return raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/dashboard";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(loginAction, initial);
@@ -18,7 +24,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (state?.ok) {
       router.refresh();
-      router.push("/dashboard");
+      router.push(safeCallback());
     }
   }, [state, router]);
 
