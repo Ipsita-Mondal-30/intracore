@@ -223,7 +223,7 @@ function ActionChip({
 }) {
   const className = `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
     active
-      ? "border-[#3b82f6] text-[#3b82f6]"
+      ? "border-primary text-primary"
       : "border-[var(--ic-border)] text-muted hover:text-foreground"
   }`;
 

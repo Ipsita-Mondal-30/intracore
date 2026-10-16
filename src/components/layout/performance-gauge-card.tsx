@@ -27,7 +27,7 @@ export function PerformanceGaugeCard({
               cy="60"
               r="48"
               fill="none"
-              stroke="#eef2f7"
+              className="stroke-[var(--ic-table-row-hover)]"
               strokeWidth="10"
             />
             <circle

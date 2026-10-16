@@ -60,7 +60,7 @@ export function GuestChatView({
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
-      <header className="border-b border-[var(--ic-border)] bg-white px-4 py-4">
+      <header className="border-b border-[var(--ic-border)] bg-surface px-4 py-4">
         <p className="text-2xs uppercase tracking-wide text-subtle">{organizationName}</p>
         <h1 className="text-lg font-semibold">Chat with {organizationName}</h1>
         <p className="text-sm text-muted">You are chatting as {leadName}</p>
@@ -73,7 +73,7 @@ export function GuestChatView({
       />
       <div ref={bottomRef} />
 
-      <div className="border-t border-[var(--ic-border)] bg-white p-3">
+      <div className="border-t border-[var(--ic-border)] bg-surface p-3">
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <textarea
             rows={1}

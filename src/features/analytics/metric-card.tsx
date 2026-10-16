@@ -73,7 +73,7 @@ export function MetricCard({ metric }: { metric: MetricView }) {
           <p className="text-2xs text-subtle">{metric.label}</p>
           <details className="relative text-2xs">
             <summary className="cursor-pointer list-none rounded-full border border-[var(--ic-border)] px-1.5 text-subtle" aria-label={`How "${metric.label}" is calculated`}>?</summary>
-            <div className="absolute right-0 z-10 mt-1 w-72 space-y-1 rounded-lg border border-[var(--ic-border)] bg-white p-3 text-xs shadow-card">
+            <div className="absolute right-0 z-10 mt-1 w-72 space-y-1 rounded-lg border border-[var(--ic-border)] bg-surface p-3 text-xs shadow-card">
               <p>{metric.definition}</p>
               <p><span className="font-medium">Included:</span> {metric.statusInclusion}</p>
               <p><span className="font-medium">Date:</span> {metric.dateField}</p>

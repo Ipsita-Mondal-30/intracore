@@ -82,7 +82,7 @@ export default async function MrpPage({ searchParams }: Props) {
             </label>
             <Button type="submit" size="sm" variant="secondary">Plan</Button>
           </form>
-          {error ? <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">{error}</p> : null}
+          {error ? <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">{error}</p> : null}
         </CardContent>
       </Card>
 

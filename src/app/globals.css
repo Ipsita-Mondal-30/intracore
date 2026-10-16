@@ -3,49 +3,65 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
+
   /* Surfaces */
   --ic-canvas: #f3f4f6;
   --ic-surface: #ffffff;
   --ic-surface-muted: #f9fafb;
+  --ic-input: #ffffff;
   --ic-sidebar: #ffffff;
   --ic-rail: #f7f8fa;
   --ic-table-header: #f3f4f6;
   --ic-table-row-hover: #eef2f7;
+  --ic-overlay: rgba(15, 23, 42, 0.4);
+  --ic-tooltip: #1f2937;
 
-  /* Text */
+  /* Text (all ≥ 4.5:1 on surface, surface-muted and input) */
   --ic-foreground: #111827;
-  --ic-muted: #6b7280;
-  --ic-subtle: #9ca3af;
+  --ic-muted: #4b5563;
+  --ic-subtle: #646b78;
 
   /* Borders */
   --ic-border: #e5e7eb;
   --ic-border-strong: #d1d5db;
 
-  /* Brand / accents (Figma re-engaged) */
-  --ic-primary: #3b82f6;
-  --ic-primary-hover: #2563eb;
+  /* Brand / status. Fills carry white text; *-text is for text on surface or *-soft. */
+  --ic-primary: #2563eb;
+  --ic-primary-hover: #1d4ed8;
+  --ic-primary-text: #2563eb;
   --ic-primary-soft: #eff6ff;
   --ic-primary-outline: #bfdbfe;
   --ic-nav-active: #2d2d2d;
-  --ic-success: #16a34a;
-  --ic-danger: #ef4444;
-  --ic-reengaged-date: #ef4444;
-  --ic-warning: #f59e0b;
+  --ic-success: #15803d;
+  --ic-success-text: #15803d;
+  --ic-success-soft: #ecfdf5;
+  --ic-danger: #dc2626;
+  --ic-danger-text: #b91c1c;
+  --ic-danger-soft: #fef2f2;
+  --ic-warning: #b45309;
+  --ic-warning-text: #b45309;
+  --ic-warning-soft: #fffbeb;
+  --ic-warning-border: #fde68a;
+  --ic-neutral-soft: #f1f5f9;
+  --ic-neutral-text: #334155;
+  --ic-skeleton: #e2e8f0;
+  --ic-reengaged-date: var(--ic-danger-text);
 
   /* Badges & chips */
   --ic-private-bg: #ffe4e8;
-  --ic-private-text: #e11d48;
-  --ic-action-chip-border: #e5e7eb;
+  --ic-private-text: #be123c;
+  --ic-action-chip-border: var(--ic-border);
   --ic-action-chip-active-border: var(--ic-primary);
-  --ic-action-chip-active-text: var(--ic-primary);
+  --ic-action-chip-active-text: var(--ic-primary-text);
 
   /* Tabs */
-  --ic-tab-active: var(--ic-primary);
+  --ic-tab-active: var(--ic-primary-text);
   --ic-tab-inactive: var(--ic-muted);
 
   /* Phone / call affordances */
-  --ic-phone-btn-bg: #eff6ff;
-  --ic-phone-btn-text: var(--ic-primary);
+  --ic-phone-btn-bg: var(--ic-primary-soft);
+  --ic-phone-btn-text: var(--ic-primary-text);
 
   /* Module rail accents */
   --ic-module-orange: #ff8a3d;
@@ -61,6 +77,54 @@
   --radius-pill: 999px;
   --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04),
     0 8px 24px rgba(16, 24, 40, 0.04);
+}
+
+/* Dark theme: <html class="dark">, set before paint by the script in app/layout.tsx. */
+.dark {
+  color-scheme: dark;
+
+  --ic-canvas: #0b0f17;
+  --ic-surface: #141a24;
+  --ic-surface-muted: #1a212d;
+  --ic-input: #0f141c;
+  --ic-sidebar: #141a24;
+  --ic-rail: #10151e;
+  --ic-table-header: #1a212d;
+  --ic-table-row-hover: #1e2633;
+  --ic-overlay: rgba(0, 0, 0, 0.6);
+  --ic-tooltip: #334155;
+
+  --ic-foreground: #e6e9ef;
+  --ic-muted: #b0b8c4;
+  --ic-subtle: #8f99a8;
+
+  --ic-border: #273041;
+  --ic-border-strong: #3a4558;
+
+  --ic-primary: #2563eb;
+  --ic-primary-hover: #3b82f6;
+  --ic-primary-text: #60a5fa;
+  --ic-primary-soft: #16233b;
+  --ic-primary-outline: #1e3a8a;
+  --ic-nav-active: #334155;
+  --ic-success: #15803d;
+  --ic-success-text: #4ade80;
+  --ic-success-soft: #11251a;
+  --ic-danger: #dc2626;
+  --ic-danger-text: #f87171;
+  --ic-danger-soft: #2a1719;
+  --ic-warning: #b45309;
+  --ic-warning-text: #fbbf24;
+  --ic-warning-soft: #2a2112;
+  --ic-warning-border: #5c4413;
+  --ic-neutral-soft: #222a36;
+  --ic-neutral-text: #cbd5e1;
+  --ic-skeleton: #222a36;
+
+  --ic-private-bg: #3a1a24;
+  --ic-private-text: #fda4af;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 @layer base {
@@ -82,6 +146,12 @@
   a {
     color: inherit;
     text-decoration: none;
+  }
+
+  /* Raw inputs outside the Input component still get a readable placeholder. */
+  ::placeholder {
+    color: var(--ic-subtle);
+    opacity: 1;
   }
 }
 
@@ -116,12 +186,12 @@
   }
 
   .ic-academic-select {
-    @apply h-9 min-w-[120px] rounded-lg border bg-white px-3 text-xs font-medium text-foreground;
+    @apply h-9 min-w-[120px] rounded-lg border bg-[var(--ic-input)] px-3 text-xs font-medium text-foreground;
     border-color: var(--ic-border-strong);
   }
 
   .ic-toolbar-btn {
-    @apply inline-flex h-9 items-center gap-1.5 rounded-lg border bg-white px-3 text-xs font-medium text-foreground transition;
+    @apply inline-flex h-9 items-center gap-1.5 rounded-lg border bg-[var(--ic-surface)] px-3 text-xs font-medium text-foreground transition;
     border-color: var(--ic-border);
   }
 
@@ -131,7 +201,7 @@
 
   .ic-toolbar-btn--filter {
     border-color: var(--ic-primary-outline);
-    color: var(--ic-primary);
+    color: var(--ic-primary-text);
     background: var(--ic-primary-soft);
   }
 
@@ -149,7 +219,7 @@
     @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition;
     border-color: var(--ic-action-chip-border);
     color: var(--ic-muted);
-    background: white;
+    background: var(--ic-surface);
   }
 
   .ic-action-chip:hover {
@@ -159,7 +229,7 @@
   .ic-action-chip--active {
     border-color: var(--ic-action-chip-active-border);
     color: var(--ic-action-chip-active-text);
-    background: white;
+    background: var(--ic-surface);
   }
 
   .ic-action-chip--disabled {

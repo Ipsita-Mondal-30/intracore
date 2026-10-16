@@ -84,8 +84,8 @@ export default async function AuditPage({ searchParams }: Props) {
                         <details>
                           <summary className="cursor-pointer text-xs text-primary">View diff</summary>
                           <div className="mt-2 grid gap-2 md:grid-cols-2">
-                            <pre className="max-h-64 overflow-auto rounded-lg bg-red-50 p-2 text-2xs">{json(log.previous)}</pre>
-                            <pre className="max-h-64 overflow-auto rounded-lg bg-emerald-50 p-2 text-2xs">{json(log.next)}</pre>
+                            <pre className="max-h-64 overflow-auto rounded-lg bg-danger-soft p-2 text-2xs">{json(log.previous)}</pre>
+                            <pre className="max-h-64 overflow-auto rounded-lg bg-success-soft p-2 text-2xs">{json(log.next)}</pre>
                           </div>
                         </details>
                       ) : "—"}

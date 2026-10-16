@@ -58,7 +58,7 @@ export default async function ProjectsPage({ searchParams }: Props) {
                     <RecordsTableCell>{formatDate(p.endDate)}</RecordsTableCell>
                     <RecordsTableCell>
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={p.progress.percent} aria-valuemin={0} aria-valuemax={100}>
+                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-skeleton" role="progressbar" aria-valuenow={p.progress.percent} aria-valuemin={0} aria-valuemax={100}>
                           <div className="h-full bg-primary" style={{ width: `${p.progress.percent}%` }} />
                         </div>
                         <span className="text-2xs text-subtle">{p.progress.done}/{p.progress.total}</span>

@@ -75,7 +75,7 @@ export default async function CreditNotePage({ params }: { params: Promise<{ id:
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {s === "CANCELLED" ? (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">
+            <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">
               Cancelled {formatDate(note.cancelledAt)}{note.cancelReason ? `: “${note.cancelReason}”` : ""}
             </p>
           ) : null}
