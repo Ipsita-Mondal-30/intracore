@@ -15,7 +15,7 @@ create extension if not exists pg_net with schema extensions;
 do $$
 declare
   app_url text := 'https://intracore-tw2j.vercel.app';   -- production URL, no trailing slash
-  cron_secret text := 'PASTE-THE-SAME-CRON_SECRET-AS-VERCEL';
+  cron_secret text := 'some-long-random-string';
 begin
   if app_url like '%YOUR-APP%' or cron_secret like 'PASTE-%' then
     raise exception 'Replace app_url and cron_secret before running this script';
