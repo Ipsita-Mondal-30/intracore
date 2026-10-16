@@ -39,7 +39,7 @@ export default async function InquiryDetailPage({
         actions={
           <Link
             href="/leads/inquiries"
-            className="inline-flex h-8 items-center justify-center rounded-lg border border-[var(--ic-border)] bg-white px-3 text-xs font-medium hover:bg-[var(--ic-surface-muted)]"
+            className="inline-flex h-8 items-center justify-center rounded-lg border border-[var(--ic-border)] bg-surface px-3 text-xs font-medium hover:bg-[var(--ic-surface-muted)]"
           >
             Back to list
           </Link>

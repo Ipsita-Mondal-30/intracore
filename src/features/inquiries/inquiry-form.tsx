@@ -219,7 +219,7 @@ export function InquiryForm({
         </Button>
         <Link
           href={inquiry ? `/leads/inquiries/${inquiry.id}` : "/leads/inquiries"}
-          className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--ic-border)] bg-white px-4 text-sm font-medium hover:bg-[var(--ic-surface-muted)]"
+          className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--ic-border)] bg-surface px-4 text-sm font-medium hover:bg-[var(--ic-surface-muted)]"
         >
           Cancel
         </Link>

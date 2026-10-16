@@ -37,7 +37,7 @@ export function LeadOverviewPanel({
   }
 
   return (
-    <section className="rounded-2xl border border-[var(--ic-border)] bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-[var(--ic-border)] bg-surface p-5 shadow-sm">
       <div className="flex items-start gap-4">
         <Avatar name={fullName} size="lg" />
         <div className="min-w-0 flex-1">

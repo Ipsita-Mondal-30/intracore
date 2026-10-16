@@ -100,7 +100,7 @@ export function DialUpdateModal({
               <Button
                 type="button"
                 size="sm"
-                className="rounded-lg bg-[#3b82f6] hover:bg-[#2563eb]"
+                className="rounded-lg bg-primary hover:bg-primary-hover"
                 onClick={() => {
                   if (lead.phone) window.location.href = `tel:${lead.phone}`;
                 }}
@@ -108,7 +108,7 @@ export function DialUpdateModal({
                 <Phone className="h-3.5 w-3.5" />
                 Call
               </Button>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#3b82f6] text-sm font-bold text-white">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
                 S
               </span>
             </div>
@@ -203,7 +203,7 @@ export function DialUpdateModal({
                       name="gender"
                       value="male"
                       defaultChecked
-                      className="accent-[#3b82f6]"
+                      className="accent-[var(--ic-primary)]"
                     />
                     Male
                   </label>
@@ -212,7 +212,7 @@ export function DialUpdateModal({
                       type="radio"
                       name="gender"
                       value="female"
-                      className="accent-[#3b82f6]"
+                      className="accent-[var(--ic-primary)]"
                     />
                     Female
                   </label>
@@ -233,7 +233,7 @@ export function DialUpdateModal({
                         name="category"
                         value={cat}
                         defaultChecked={i === 0}
-                        className="accent-[#3b82f6]"
+                        className="accent-[var(--ic-primary)]"
                       />
                       {cat}
                     </label>
@@ -297,7 +297,7 @@ export function DialUpdateModal({
               <Button
                 type="submit"
                 disabled={pending}
-                className="min-w-28 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb]"
+                className="min-w-28 rounded-lg bg-primary hover:bg-primary-hover"
               >
                 {pending ? "Updating…" : "Update"}
               </Button>
@@ -363,7 +363,7 @@ function RadioRow({
               name={name}
               value={option.value}
               defaultChecked={defaultValue === option.value}
-              className="accent-[#3b82f6]"
+              className="accent-[var(--ic-primary)]"
             />
             {option.label}
           </label>

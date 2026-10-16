@@ -21,7 +21,7 @@ export function Tabs({
           className={cn(
             "rounded-pill px-3 py-1.5 text-sm transition",
             value === tab.id
-              ? "bg-white font-medium text-foreground shadow-sm"
+              ? "bg-surface font-medium text-foreground shadow-sm"
               : "text-muted hover:text-foreground",
           )}
         >
