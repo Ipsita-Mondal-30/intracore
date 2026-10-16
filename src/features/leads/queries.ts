@@ -4,7 +4,7 @@ import {
   seedOrganizationLeadDefaults,
   ensureMissingSystemLeadViews,
 } from "@/lib/leads/seed-defaults";
-import { orgCache } from "@/lib/cache/request-cache";
+import { orgCache, sharedCache } from "@/lib/cache/request-cache";
 import type { Prisma } from "@prisma/client";
 import { leadListQuerySchema } from "@/lib/validations/leads";
 import type { TenantContext } from "@/lib/tenant";
@@ -757,3 +757,20 @@ export async function listTasks(tenant: TenantContext) {
     take: 200,
   });
 }
+
+/**
+ * Dashboard aggregates served stale-while-revalidate from the shared cache: a page load reads
+ * the cached numbers instantly and an expired entry is recomputed in the background. Lead
+ * actions' revalidatePath("/dashboard" | "/leads") also clears them; 30 s caps staleness.
+ */
+export const getCachedLeadDashboardStats = (organizationId: string, userId: string) =>
+  sharedCache(() => getLeadDashboardStats(organizationId, userId), ["lead-dashboard-stats", organizationId, userId], {
+    tags: [`lead-dashboard:${organizationId}`],
+    revalidate: 30,
+  });
+
+export const getCachedLeadDashboardCharts = (organizationId: string) =>
+  sharedCache(() => getLeadDashboardCharts(organizationId), ["lead-dashboard-charts", organizationId], {
+    tags: [`lead-dashboard:${organizationId}`],
+    revalidate: 30,
+  });

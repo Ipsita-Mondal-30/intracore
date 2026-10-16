@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import type { LeadStatus } from "@prisma/client";
 import { hasPermission, requirePermission } from "@/lib/tenant";
 import {
-  getLeadDashboardStats,
+  getCachedLeadDashboardStats,
   getLeadListStats,
   getLeadLookups,
   getLeadViewBySlug,
@@ -93,7 +93,7 @@ export async function LeadsListPage({
     view === "kanban" ? listLeadsForKanban(tenant, params) : null,
     viewSlug || preset
       ? getLeadListStats(tenant, params)
-      : getLeadDashboardStats(tenant.organizationId, tenant.userId),
+      : getCachedLeadDashboardStats(tenant.organizationId, tenant.userId),
     import("@/lib/db/prisma").then(({ prisma }) =>
       prisma.organization.findUnique({
         where: { id: tenant.organizationId },

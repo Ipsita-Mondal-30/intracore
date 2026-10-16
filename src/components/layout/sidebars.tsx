@@ -23,81 +23,78 @@ import {
   ListTodo,
   Upload,
   Download,
+  Target,
+  ShoppingCart,
+  Boxes,
+  Truck,
+  Wallet,
+  Contact,
+  LifeBuoy,
+  Factory,
+  MessageSquare,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/features/auth/actions";
 
 const modules = [
-  { href: "/dashboard", label: "Overview", color: "bg-[var(--ic-primary)]" },
-  { href: "/analytics", label: "Analytics", color: "bg-fuchsia-500" },
-  { href: "/leads", label: "Leads", color: "bg-[var(--ic-module-orange)]" },
-  { href: "/crm/customers", label: "CRM", color: "bg-emerald-500" },
-  { href: "/sales/quotations", label: "Sales", color: "bg-sky-500" },
-  { href: "/inventory/products", label: "Inventory", color: "bg-amber-500" },
-  { href: "/purchasing/orders", label: "Purchasing", color: "bg-rose-500" },
-  { href: "/finance/invoices", label: "Finance", color: "bg-violet-500" },
-  { href: "/hr/employees", label: "HR", color: "bg-pink-500" },
-  { href: "/projects", label: "Projects", color: "bg-lime-500" },
-  { href: "/service/tickets", label: "Service", color: "bg-cyan-500" },
-  { href: "/manufacturing/work-orders", label: "Manufacturing", color: "bg-orange-600" },
-  { href: "/communication/messages", label: "Communication", color: "bg-teal-500" },
-  { href: "/automation/approvals", label: "Automation", color: "bg-indigo-500" },
-  {
-    href: "/settings/organization",
-    label: "Organization",
-    color: "bg-[var(--ic-module-purple)]",
-  },
-  {
-    href: "/settings/integrations",
-    label: "Integrations",
-    color: "bg-[var(--ic-module-teal)]",
-  },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, color: "bg-[var(--ic-primary)]" },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, color: "bg-fuchsia-500" },
+  { href: "/leads", label: "Leads", icon: Target, color: "bg-[var(--ic-module-orange)]" },
+  { href: "/crm/customers", label: "CRM", icon: Users, color: "bg-emerald-500", prefix: "/crm" },
+  { href: "/sales/quotations", label: "Sales", icon: ShoppingCart, color: "bg-sky-500", prefix: "/sales" },
+  { href: "/inventory/products", label: "Inventory", icon: Boxes, color: "bg-amber-500", prefix: "/inventory" },
+  { href: "/purchasing/orders", label: "Purchasing", icon: Truck, color: "bg-rose-500", prefix: "/purchasing" },
+  { href: "/finance/invoices", label: "Finance", icon: Wallet, color: "bg-violet-500", prefix: "/finance" },
+  { href: "/hr/employees", label: "HR", icon: Contact, color: "bg-pink-500", prefix: "/hr" },
+  { href: "/projects", label: "Projects", icon: KanbanSquare, color: "bg-lime-600" },
+  { href: "/service/tickets", label: "Service", icon: LifeBuoy, color: "bg-cyan-500", prefix: "/service" },
+  { href: "/manufacturing/work-orders", label: "Manufacturing", icon: Factory, color: "bg-orange-600", prefix: "/manufacturing" },
+  { href: "/communication/messages", label: "Communication", icon: MessageSquare, color: "bg-teal-500", prefix: "/communication" },
+  { href: "/automation/approvals", label: "Automation", icon: Workflow, color: "bg-indigo-500", prefix: "/automation" },
+  { href: "/settings/organization", label: "Settings", icon: Building2, color: "bg-[var(--ic-module-purple)]", prefix: "/settings" },
 ] as const;
 
 export function ModuleRail() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-[72px] shrink-0 flex-col items-center gap-3 py-5">
+    <aside className="sticky top-4 flex h-[calc(100vh-2rem)] w-[72px] self-start shrink-0 flex-col items-center gap-3 py-4">
       <Link
         href="/dashboard"
-        className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-white shadow-card"
+        className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-white shadow-card"
         aria-label="IntraCore"
       >
         IC
       </Link>
 
-      <nav className="flex flex-1 flex-col items-center gap-2.5">
+      <nav className="flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto overflow-x-visible py-1 [scrollbar-width:none]">
         {modules.map((mod) => {
-          const active =
-            pathname === mod.href || pathname.startsWith(`${mod.href}/`);
+          const base = "prefix" in mod ? mod.prefix : mod.href;
+          const active = pathname === base || pathname.startsWith(`${base}/`);
+          const Icon = mod.icon;
           return (
             <Link
               key={mod.href}
               href={mod.href}
               title={mod.label}
+              aria-label={mod.label}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-xl transition",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition",
                 mod.color,
                 active
-                  ? "ring-2 ring-offset-2 ring-offset-[var(--ic-canvas)] ring-black/10 scale-105"
-                  : "opacity-90 hover:opacity-100",
+                  ? "ring-2 ring-offset-2 ring-offset-[var(--ic-canvas)] ring-black/15"
+                  : "opacity-85 hover:opacity-100",
               )}
             >
-              <span className="sr-only">{mod.label}</span>
+              <Icon className="h-4 w-4" />
             </Link>
           );
         })}
       </nav>
 
       <div className="mt-auto flex flex-col items-center gap-2">
-        <Link
-          href="/settings/organization"
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-muted shadow-sm hover:text-foreground"
-          title="Settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
         <form action={logoutAction}>
           <button
             type="submit"
@@ -355,12 +352,14 @@ export function AppSidebar({
   const pathname = usePathname();
   const firstName = userName.split(" ")[0] || userName;
   const contextGroups = [
-    ...sectionNav.filter((section) => pathname.startsWith(section.prefix)).map((section) => section.group),
+    ...sectionNav.filter((section) => pathname === section.prefix || pathname.startsWith(`${section.prefix}/`)).map((section) => section.group),
     ...(pathname.startsWith("/settings") ? orgNavGroups : []),
   ];
+  // Inside an ERP section or settings, show that section's menu; the lead menus belong to Leads.
+  const leadMode = contextGroups.length === 0;
 
   return (
-    <aside className="flex w-full max-w-[240px] shrink-0 flex-col py-5 pr-2 md:w-[240px]">
+    <aside className="sticky top-4 flex h-[calc(100vh-2rem)] w-full max-w-[240px] self-start shrink-0 flex-col py-5 pr-2 md:w-[240px]">
       <div className="mb-6 flex items-center gap-3 px-2">
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
           {firstName.slice(0, 1).toUpperCase()}
@@ -394,6 +393,8 @@ export function AppSidebar({
                 Overview
               </Link>
             </li>
+            {leadMode ? (
+              <>
             <li>
               <Link
                 href="/leads/tasks"
@@ -422,10 +423,12 @@ export function AppSidebar({
                 Import
               </Link>
             </li>
+              </>
+            ) : null}
           </ul>
         </div>
 
-        {leadNavGroups.map((group) => (
+        {(leadMode ? leadNavGroups : []).map((group) => (
           <div key={group.category}>
             <p className="mb-2 px-3 text-2xs font-semibold tracking-wider text-subtle">
               {group.title}
