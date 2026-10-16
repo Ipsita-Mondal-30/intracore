@@ -64,7 +64,7 @@ export function PerformanceChartCard({
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="max-w-sm rounded-xl bg-white/90 px-4 py-3 text-center text-sm text-muted shadow-sm">
+            <p className="max-w-sm rounded-xl bg-surface px-4 py-3 text-center text-sm text-muted shadow-sm">
               {emptyMessage}
             </p>
           </div>

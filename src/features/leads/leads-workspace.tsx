@@ -128,7 +128,7 @@ function renderLeadColumn(
       );
     case "reengagedDate":
       return (
-        <span className={showReengagedHighlight ? "font-medium text-red-600" : "text-muted"}>
+        <span className={showReengagedHighlight ? "font-medium text-danger" : "text-muted"}>
           {lead.reEngagedAt ? formatLeadListDateTime(lead.reEngagedAt) : "—"}
         </span>
       );
@@ -659,7 +659,7 @@ export function LeadsWorkspace({
             >
               {rows.length
                 ? rows.map((lead, index) => (
-                    <tr key={lead.id} className="border-b border-[var(--ic-border)] last:border-0 odd:bg-white even:bg-[var(--ic-surface-muted)]/30">
+                    <tr key={lead.id} className="border-b border-[var(--ic-border)] last:border-0 odd:bg-surface even:bg-[var(--ic-surface-muted)]/30">
                       <td className={CELL_CLASS}>{(page - 1) * pageSize + index + 1}</td>
                       <td className={CELL_CLASS}>
                         <Checkbox
@@ -789,7 +789,7 @@ function KanbanBoard({
                   href={`/leads/${lead.id}`}
                   draggable={canStage}
                   onDragStart={(e) => e.dataTransfer.setData("text/lead-id", lead.id)}
-                  className="block rounded-xl bg-white p-3 text-sm shadow-sm"
+                  className="block rounded-xl bg-surface p-3 text-sm shadow-sm"
                 >
                   <p className="font-medium">{lead.fullName}</p>
                   <p className="text-2xs text-subtle">{lead.company ?? lead.email ?? "—"}</p>

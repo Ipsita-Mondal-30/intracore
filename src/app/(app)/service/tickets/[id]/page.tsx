@@ -75,7 +75,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
               {ticket.messages.length === 0 ? <p className="text-sm text-muted">No messages yet.</p> : (
                 <ul className="space-y-3 text-sm">
                   {ticket.messages.map((m) => (
-                    <li key={m.id} className={cn("rounded-xl border px-3 py-2", m.visibility === "INTERNAL" ? "border-amber-200 bg-amber-50" : "border-[var(--ic-border)]")}>
+                    <li key={m.id} className={cn("rounded-xl border px-3 py-2", m.visibility === "INTERNAL" ? "border-warning-border bg-warning-soft" : "border-[var(--ic-border)]")}>
                       <p className="mb-1 flex flex-wrap items-center gap-2 text-2xs text-subtle">
                         <span>{m.authorType === "SYSTEM" ? "System" : m.authorType === "CUSTOMER" ? "Customer" : name(m.author)}</span>
                         <span>{formatDateTime(m.createdAt)}</span>

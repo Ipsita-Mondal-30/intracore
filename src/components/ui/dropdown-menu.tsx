@@ -16,7 +16,7 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         align="end"
         className={cn(
-          "z-50 min-w-[180px] rounded-xl border border-[var(--ic-border)] bg-white p-1 shadow-card",
+          "z-50 min-w-[180px] rounded-xl border border-[var(--ic-border)] bg-surface p-1 shadow-card",
           className,
         )}
         {...props}

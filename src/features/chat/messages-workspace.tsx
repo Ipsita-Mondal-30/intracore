@@ -86,7 +86,7 @@ export function MessagesWorkspace({
   };
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] min-h-[560px] overflow-hidden rounded-2xl border border-[var(--ic-border)] bg-white">
+    <div className="flex h-[calc(100vh-12rem)] min-h-[560px] overflow-hidden rounded-2xl border border-[var(--ic-border)] bg-surface">
       <aside
         className={cn(
           "flex w-full flex-col border-r border-[var(--ic-border)] md:w-[320px] lg:w-[360px]",
