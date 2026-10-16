@@ -316,7 +316,7 @@ export function LeadDetailView({
                       {lead.activities.map((item, index) => (
                         <tr
                           key={item.id}
-                          className="border-b border-[var(--ic-border)]/70 last:border-0 odd:bg-white even:bg-[var(--ic-surface-muted)]/40"
+                          className="border-b border-[var(--ic-border)]/70 last:border-0 odd:bg-surface even:bg-[var(--ic-surface-muted)]/40"
                         >
                           <td className="px-3 py-2.5 text-muted">{index + 1}</td>
                           <td className="whitespace-nowrap px-3 py-2.5">

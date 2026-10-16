@@ -198,7 +198,7 @@ export function StockEntryForm({
       <Field label="Notes"><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
 
       {errors.length > 0 ? (
-        <ul className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">
+        <ul className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
           {errors.map((e) => <li key={e.path}><strong>{label(e.path)}: </strong>{e.message}</li>)}
         </ul>
       ) : null}

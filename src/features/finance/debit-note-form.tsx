@@ -89,7 +89,7 @@ export function DebitNoteForm({ billId, lines, today }: { billId: string; lines:
         <Field label="Reason" className="sm:col-span-2"><Textarea name="reason" rows={2} required maxLength={1000} /></Field>
       </div>
       {errors.length > 0 ? (
-        <ul className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">
+        <ul className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
           {errors.map((e, i) => <li key={i}>{e}</li>)}
         </ul>
       ) : null}

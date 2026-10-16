@@ -187,7 +187,7 @@ export function ReceiptForm({
       <Button type="submit" size="sm" disabled={pending || !customerId || !bankAccountId || unallocated < 0}>
         {pending ? "Saving…" : "Record receipt"}
       </Button>
-      {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">{error}</p> : null}
     </form>
   );
 }

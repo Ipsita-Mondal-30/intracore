@@ -40,9 +40,9 @@ export default async function MessagePage({ params }: { params: Promise<{ id: st
         actions={<div className="flex items-center gap-2"><StatusBadge status={m.status} />{m.simulated ? <Badge tone="warning">Simulated</Badge> : null}</div>}
       />
       {m.simulated ? (
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-warning">Simulated: a mock provider handled this message. Nothing was sent to the recipient.</p>
+        <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">Simulated: a mock provider handled this message. Nothing was sent to the recipient.</p>
       ) : null}
-      {m.error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">{m.error}</p> : null}
+      {m.error ? <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{m.error}</p> : null}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2"><CardContent className="whitespace-pre-line pt-5 text-sm">{m.body}</CardContent></Card>
         <Card>

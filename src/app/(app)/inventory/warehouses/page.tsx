@@ -144,7 +144,7 @@ export default async function WarehousesPage({ searchParams }: Props) {
 
             {report ? (
               report.balanceDiffs.length === 0 && report.valuationDiffs.length === 0 ? (
-                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-success">Caches match the ledger.</p>
+                <p className="rounded-xl bg-success-soft px-3 py-2 text-sm text-success">Caches match the ledger.</p>
               ) : (
                 <div className="space-y-4">
                   {report.balanceDiffs.length ? (
