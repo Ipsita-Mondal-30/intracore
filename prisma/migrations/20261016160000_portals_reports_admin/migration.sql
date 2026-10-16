@@ -164,9 +164,21 @@ ALTER TABLE "data_exports" ADD CONSTRAINT "data_exports_organizationId_fkey" FOR
 ALTER TABLE "retention_policies" ADD CONSTRAINT "retention_policies_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 
--- Index for dashboard aggregates over posted documents by date.
-CREATE INDEX IF NOT EXISTS "sales_invoices_org_status_date_idx" ON "sales_invoices" ("organizationId", "status", "invoiceDate");
-CREATE INDEX IF NOT EXISTS "vendor_bills_org_status_date_idx" ON "vendor_bills" ("organizationId", "status", "billDate");
+-- Indexes for dashboard and report aggregates (see docs/METRICS.md).
+CREATE INDEX "attendance_records_organizationId_date_idx" ON "attendance_records"("organizationId", "date");
+CREATE INDEX "credit_notes_organizationId_companyId_status_noteDate_idx" ON "credit_notes"("organizationId", "companyId", "status", "noteDate");
+CREATE INDEX "data_exports_organizationId_requestedById_createdAt_idx" ON "data_exports"("organizationId", "requestedById", "createdAt");
+CREATE INDEX "expense_claims_organizationId_companyId_status_approvedAt_idx" ON "expense_claims"("organizationId", "companyId", "status", "approvedAt");
+CREATE INDEX "leave_requests_organizationId_status_startDate_idx" ON "leave_requests"("organizationId", "status", "startDate");
+CREATE INDEX "quotations_organizationId_companyId_decidedAt_idx" ON "quotations"("organizationId", "companyId", "decidedAt");
+CREATE INDEX "quotations_organizationId_companyId_createdAt_idx" ON "quotations"("organizationId", "companyId", "createdAt");
+CREATE INDEX "sales_invoices_organizationId_companyId_status_invoiceDate_idx" ON "sales_invoices"("organizationId", "companyId", "status", "invoiceDate");
+CREATE INDEX "sales_orders_organizationId_companyId_confirmedAt_idx" ON "sales_orders"("organizationId", "companyId", "confirmedAt");
+CREATE INDEX "saved_reports_organizationId_createdById_idx" ON "saved_reports"("organizationId", "createdById");
+CREATE INDEX "stock_entries_organizationId_companyId_type_status_postedAt_idx" ON "stock_entries"("organizationId", "companyId", "type", "status", "postedAt");
+CREATE INDEX "stock_moves_organizationId_companyId_movedAt_idx" ON "stock_moves"("organizationId", "companyId", "movedAt");
+CREATE INDEX "tickets_organizationId_companyId_resolvedAt_idx" ON "tickets"("organizationId", "companyId", "resolvedAt");
+CREATE INDEX "vendor_bills_organizationId_companyId_status_billDate_idx" ON "vendor_bills"("organizationId", "companyId", "status", "billDate");
 
 -- RLS on the new tables (see 20261016100000_erp_foundation).
 DO $$

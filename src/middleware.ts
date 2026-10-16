@@ -54,7 +54,8 @@ export async function middleware(request: NextRequest) {
     if (!user && !isPublic) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/login";
-      redirectUrl.searchParams.set("callbackUrl", pathname);
+      redirectUrl.search = "";
+      redirectUrl.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(redirectUrl);
     }
   } catch {

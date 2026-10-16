@@ -229,3 +229,15 @@ New jobs (`POST /api/v1/jobs/run`): `ticket-escalation`, `service-contract-remin
 Public webhooks (no session; signature-verified): `GET/POST /api/webhooks/whatsapp/:integrationId`, `POST /api/webhooks/esign/:provider`.
 
 New jobs (`POST /api/v1/jobs/run`): `background-queue` (run every minute), `reminders`, `workflow-dispatch`, `approval-escalation`, `campaign-scheduler`, `loyalty-expiry`. Every job run is recorded in `job_runs`.
+
+## Portals, analytics and administration (Phase 7)
+
+| Module | Endpoints |
+|---|---|
+| Customer, dealer, vendor, employee and technician portals; portal invitations and accounts ([identity model](PORTALS.md)) | [api/portals.md](api/portals.md) |
+| Dashboards, management MIS, report builder, saved reports, data exports ([metric definitions](METRICS.md)) | [api/analytics-reports.md](api/analytics-reports.md) |
+| Members, roles and permissions, org/company settings, environment, audit search, imports, retention, backups ([admin](ADMIN.md), [backup and restore](BACKUP_RESTORE.md)) | [api/admin.md](api/admin.md) |
+
+Portal APIs live under `/api/portal/**` and authorize only through a portal account; they never accept an internal session's permissions.
+
+New jobs (`POST /api/v1/jobs/run`): `retention`, `export-expiry`.

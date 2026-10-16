@@ -1828,6 +1828,8 @@ model Quotation {
   @@index([organizationId, companyId, status])
   @@index([organizationId, customerId])
   @@index([organizationId, opportunityId])
+  @@index([organizationId, companyId, decidedAt])
+  @@index([organizationId, companyId, createdAt])
   @@map("quotations")
 }
 
@@ -1917,6 +1919,7 @@ model SalesOrder {
   @@unique([organizationId, id])
   @@index([organizationId, companyId, status])
   @@index([organizationId, customerId])
+  @@index([organizationId, companyId, confirmedAt])
   @@map("sales_orders")
 }
 
@@ -2135,6 +2138,7 @@ model StockEntry {
   @@index([organizationId, companyId, type, status])
   @@index([organizationId, purchaseOrderId])
   @@index([organizationId, salesOrderId])
+  @@index([organizationId, companyId, type, status, postedAt])
   @@map("stock_entries")
 }
 
@@ -2210,6 +2214,7 @@ model StockMove {
   @@index([organizationId, companyId, productId, movedAt])
   @@index([locationId, productId])
   @@index([entryId])
+  @@index([organizationId, companyId, movedAt])
   @@map("stock_moves")
 }
 
@@ -2477,6 +2482,7 @@ model VendorBill {
   @@unique([organizationId, vendorId, vendorInvoiceNumber])
   @@unique([organizationId, id])
   @@index([organizationId, companyId, status])
+  @@index([organizationId, companyId, status, billDate])
   @@map("vendor_bills")
 }
 
@@ -2847,6 +2853,7 @@ model SalesInvoice {
   @@unique([organizationId, id])
   @@index([organizationId, companyId, status, dueDate])
   @@index([organizationId, customerId])
+  @@index([organizationId, companyId, status, invoiceDate])
   @@map("sales_invoices")
 }
 
@@ -2927,6 +2934,7 @@ model CreditNote {
   @@unique([companyId, number])
   @@unique([organizationId, id])
   @@index([organizationId, customerId])
+  @@index([organizationId, companyId, status, noteDate])
   @@map("credit_notes")
 }
 
@@ -3204,6 +3212,7 @@ model ExpenseClaim {
   @@unique([companyId, number])
   @@unique([organizationId, id])
   @@index([organizationId, claimantId])
+  @@index([organizationId, companyId, status, approvedAt])
   @@map("expense_claims")
 }
 
@@ -3500,6 +3509,7 @@ model AttendanceRecord {
 
   @@unique([employeeId, date])
   @@unique([organizationId, id])
+  @@index([organizationId, date])
   @@map("attendance_records")
 }
 
@@ -3596,6 +3606,7 @@ model LeaveRequest {
 
   @@index([employeeId, startDate])
   @@index([organizationId, status])
+  @@index([organizationId, status, startDate])
   @@map("leave_requests")
 }
 
@@ -4247,6 +4258,7 @@ model Ticket {
   @@unique([companyId, number])
   @@unique([organizationId, id])
   @@index([organizationId, status, resolutionDueAt])
+  @@index([organizationId, companyId, resolvedAt])
   @@map("tickets")
 }
 
@@ -5131,6 +5143,7 @@ model SavedReport {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, name])
+  @@index([organizationId, createdById])
   @@map("saved_reports")
 }
 
@@ -5154,6 +5167,7 @@ model DataExport {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, requestedById, createdAt])
   @@map("data_exports")
 }
 

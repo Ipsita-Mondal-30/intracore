@@ -122,10 +122,22 @@ npm run lint
 
 ## ERP modules
 
-Companies & branches (multi-GSTIN), customers, contacts, opportunities, products, quotations,
-sales orders, inventory (warehouses, stock ledger, reservations, batches/serials) and
-purchasing (vendors, purchase orders, goods receipts, vendor bills). REST API under
-`/api/v1` — see [docs/API.md](docs/API.md); stock rules in [docs/INVENTORY.md](docs/INVENTORY.md).
+- **Core:** companies and branches (multi-GSTIN), CRM, catalog, quotations and sales orders.
+- **Inventory and purchasing:** warehouses, stock ledger, reservations, purchase orders, goods receipts, vendor bills.
+- **Finance:** ledger, GST and finance reports.
+- **HR:** attendance, leave, recruitment, performance, payroll.
+- **Projects and service:** projects, service tickets with SLAs, AMC/warranty, field work.
+- **Manufacturing and quality:** manufacturing, MRP, quality.
+- **Automation and communication:** workflows and approvals, the communication centre (email, SMS, WhatsApp), marketing and loyalty, document versions and e-signature.
+- **Portals:** customer, dealer, vendor, employee and technician.
+- **Analytics:** dashboards, MIS, report builder.
+- **Administration:** users and roles, settings, audit search, imports and exports, retention, backups.
+
+Where to read more:
+- REST API (`/api/v1`): [docs/API.md](docs/API.md)
+- What is done, tested, partial or blocked: [docs/COMPLETION_MATRIX.md](docs/COMPLETION_MATRIX.md)
+- How modules are built: [docs/ERP-CONVENTIONS.md](docs/ERP-CONVENTIONS.md)
+- Backups and restore: [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md)
 
 ## Tests
 

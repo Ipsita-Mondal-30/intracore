@@ -56,7 +56,12 @@ const updateCompanySchema = companyFields
   .partial()
   .extend({
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
-    settings: companySettingsSchema.deepPartial().optional(),
+    /** Partial patch, deep-merged into the stored settings and validated as a whole below.
+     *  (deepPartial() would fill omitted keys of a touched section with defaults.) */
+    settings: z
+      .record(z.string(), z.unknown())
+      .refine((s) => !("finance" in s), "Finance settings are managed by finance setup (Finance → Setup)")
+      .optional(),
   })
   .superRefine(checkGstin);
 
