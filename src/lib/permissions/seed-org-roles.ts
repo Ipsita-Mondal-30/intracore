@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   PERMISSIONS,
   SYSTEM_ROLE_TEMPLATES,
+  systemRolePermissions,
 } from "@/lib/permissions/catalog";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -62,10 +63,7 @@ export async function seedOrganizationRoles(
     });
     rolesByCode.set(template.code, role.id);
 
-    const permissionCodes =
-      template.permissions === "*"
-        ? allPermissions.map((p) => p.code)
-        : template.permissions;
+    const permissionCodes = systemRolePermissions(template.code);
 
     for (const code of permissionCodes) {
       const permission = byCode.get(code);

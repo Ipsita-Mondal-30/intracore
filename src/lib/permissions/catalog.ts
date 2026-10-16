@@ -10,6 +10,15 @@ export type PermissionSeed = {
   description?: string;
 };
 
+/** `module.action` permission rows for a module, e.g. perms("customer", "view", "create"). */
+function perms(module: string, ...actions: string[]): PermissionSeed[] {
+  return actions.map((action) => ({
+    code: `${module}.${action}`,
+    name: `${action.replace(/_/g, " ")} ${module.replace(/_/g, " ")}`,
+    module,
+  }));
+}
+
 export const PERMISSIONS: PermissionSeed[] = [
   // Organization
   { code: "org.view", name: "View organization", module: "org" },
@@ -76,14 +85,20 @@ export const PERMISSIONS: PermissionSeed[] = [
     name: "Manage integrations",
     module: "integration",
   },
+
+  // ERP foundation
+  ...perms("company", "view", "create", "update", "administer"),
+  ...perms("audit", "view"),
+  ...perms("task", "create", "view_all"),
+  ...perms("document", "view", "create", "delete"),
 ];
 
 export type SystemRoleTemplate = {
   code: string;
   name: string;
   description: string;
-  /** Permission codes; use "*" for all */
-  permissions: string[] | "*";
+  /** Permission codes, "*" for all, or a filter over the whole catalog */
+  permissions: string[] | "*" | ((all: string[]) => string[]);
 };
 
 export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
@@ -103,44 +118,7 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
     code: "admin",
     name: "Admin",
     description: "Organization and CRM administration",
-    permissions: [
-      "org.view",
-      "org.update",
-      "org.manage",
-      "member.view",
-      "member.invite",
-      "member.remove",
-      "member.change_role",
-      "role.view",
-      "role.manage",
-      "dashboard.view",
-      "lead.create",
-      "lead.view",
-      "lead.view_all",
-      "lead.edit",
-      "lead.delete",
-      "lead.assign",
-      "lead.import",
-      "lead.export",
-      "lead.convert",
-      "lead.change_stage",
-      "lead.manage_pipeline",
-      "lead.manage_sources",
-      "lead.manage_products",
-      "lead.manage_custom_fields",
-      "lead.manage_views",
-      "lead.transfer",
-      "lead.reengage",
-      "lead.manage_flags",
-      "lead.log_calls",
-      "chat.view",
-      "chat.send",
-      "chat.manage",
-      "integration.view",
-      "integration.connect",
-      "integration.disconnect",
-      "integration.manage",
-    ],
+    permissions: "*",
   },
   {
     code: "sales_manager",
@@ -246,14 +224,17 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
     code: "viewer",
     name: "Viewer",
     description: "Read-only access",
-    permissions: [
-      "org.view",
-      "member.view",
-      "role.view",
-      "dashboard.view",
-      "lead.view",
-      "chat.view",
-      "integration.view",
-    ],
+    permissions: (all) => all.filter((code) => code.endsWith(".view")),
   },
 ];
+
+const ALL_CODES = PERMISSIONS.map((p) => p.code);
+
+/** Resolved permission codes for a system role template (empty for unknown codes). */
+export function systemRolePermissions(roleCode: string): string[] {
+  const template = SYSTEM_ROLE_TEMPLATES.find((t) => t.code === roleCode);
+  if (!template) return [];
+  if (template.permissions === "*") return ALL_CODES;
+  if (typeof template.permissions === "function") return template.permissions(ALL_CODES);
+  return template.permissions;
+}

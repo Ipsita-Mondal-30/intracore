@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requirePermission } from "@/lib/tenant";
+import { leadVisibilityWhere } from "@/features/leads/scope";
 import { isAppError } from "@/lib/errors";
 import type { ActionResult } from "@/features/auth/types";
 import { computeFullName } from "@/lib/validations/leads";
@@ -31,7 +32,7 @@ export async function dialUpdateCustomerAction(
 
     const data = parsed.data;
     const lead = await prisma.lead.findFirst({
-      where: { id: data.leadId, organizationId: tenant.organizationId },
+      where: { id: data.leadId, ...leadVisibilityWhere(tenant) },
     });
     if (!lead) return { ok: false, error: "Lead not found" };
 
@@ -227,7 +228,7 @@ export async function markLeadReEngagedAction(
   try {
     const tenant = await requirePermission("lead.edit");
     const lead = await prisma.lead.findFirst({
-      where: { id: leadId, organizationId: tenant.organizationId },
+      where: { id: leadId, ...leadVisibilityWhere(tenant) },
     });
     if (!lead) return { ok: false, error: "Lead not found" };
 

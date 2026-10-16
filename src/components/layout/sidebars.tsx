@@ -127,6 +127,7 @@ const orgNavGroups: NavGroup[] = [
         label: "Organization",
         icon: Building2,
       },
+      { href: "/settings/companies", label: "Companies", icon: Building2 },
       { href: "/settings/users", label: "Users", icon: Users },
       { href: "/settings/roles", label: "Roles", icon: Shield },
       { href: "/settings/notifications", label: "Notifications", icon: Radio },

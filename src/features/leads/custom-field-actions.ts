@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requirePermission } from "@/lib/tenant";
+import { leadVisibilityWhere } from "@/features/leads/scope";
 import { isAppError } from "@/lib/errors";
 import { recordActivity } from "@/lib/leads/activity";
 import { LEAD_ACTIVITY_TYPES } from "@/lib/leads/activity-types";
@@ -70,7 +71,7 @@ export async function saveLeadCustomFieldsAction(
 ): Promise<void> {
   const tenant = await requirePermission("lead.edit");
   const lead = await prisma.lead.findFirst({
-    where: { id: leadId, organizationId: tenant.organizationId },
+    where: { id: leadId, ...leadVisibilityWhere(tenant) },
   });
   if (!lead) return;
 
@@ -148,7 +149,7 @@ export async function syncLeadFlagsAction(
 ): Promise<void> {
   const tenant = await requirePermission("lead.edit");
   const lead = await prisma.lead.findFirst({
-    where: { id: leadId, organizationId: tenant.organizationId },
+    where: { id: leadId, ...leadVisibilityWhere(tenant) },
   });
   if (!lead) return;
 
@@ -187,7 +188,7 @@ export async function updateLeadScoreAction(
 ): Promise<void> {
   const tenant = await requirePermission("lead.edit");
   const lead = await prisma.lead.findFirst({
-    where: { id: leadId, organizationId: tenant.organizationId },
+    where: { id: leadId, ...leadVisibilityWhere(tenant) },
   });
   if (!lead) return;
 

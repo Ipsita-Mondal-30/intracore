@@ -18,6 +18,7 @@ import { syncLeadTags } from "@/lib/leads/tags";
 import { LOST_REASONS } from "@/lib/leads/lost-reasons";
 import { leadVisibilityWhere } from "@/features/leads/scope";
 import { notifyLeadAssigned } from "@/lib/email/crm-notify";
+import { assertActiveMember, assertLeadRefs } from "@/lib/tenant/refs";
 
 export type LeadActionResult =
   | { ok: true; message?: string; leadId?: string }
@@ -117,6 +118,13 @@ export async function createLeadAction(
   try {
     const tenant = await requirePermission("lead.create");
     const data = leadPayload(formData);
+    await assertLeadRefs(tenant.organizationId, {
+      sourceId: data.sourceId,
+      pipelineId: data.pipelineId,
+      stageId: data.stageId,
+      assignedUserId: data.assignedUserId || null,
+      assignedTeamId: data.assignedTeamId || null,
+    });
     const email = data.email || null;
 
     const duplicates = await findDuplicateLeads(tenant.organizationId, {
@@ -256,13 +264,20 @@ export async function updateLeadAction(
     const tenant = await requirePermission("lead.edit");
     const leadId = String(formData.get("leadId") ?? "");
     const existing = await prisma.lead.findFirst({
-      where: { id: leadId, organizationId: tenant.organizationId },
+      where: { id: leadId, ...leadVisibilityWhere(tenant) },
     });
     if (!existing) {
       return { ok: false, error: "Lead not found" };
     }
 
     const data = leadPayload(formData);
+    await assertLeadRefs(tenant.organizationId, {
+      sourceId: data.sourceId,
+      pipelineId: data.pipelineId,
+      stageId: data.stageId,
+      assignedUserId: data.assignedUserId || null,
+      assignedTeamId: data.assignedTeamId || null,
+    });
     const email = data.email || null;
     const fullName = computeFullName(data);
     const pipelineId = await resolvePipeline(
@@ -364,7 +379,7 @@ export async function archiveLeadAction(leadId: string): Promise<ActionResult> {
   try {
     const tenant = await requirePermission("lead.delete");
     const lead = await prisma.lead.findFirst({
-      where: { id: leadId, organizationId: tenant.organizationId },
+      where: { id: leadId, ...leadVisibilityWhere(tenant) },
     });
     if (!lead) return { ok: false, error: "Lead not found" };
 
@@ -388,8 +403,9 @@ export async function assignLeadAction(
 ): Promise<ActionResult> {
   try {
     const tenant = await requirePermission("lead.assign");
+    if (assignedUserId) await assertActiveMember(tenant.organizationId, assignedUserId);
     const lead = await prisma.lead.findFirst({
-      where: { id: leadId, organizationId: tenant.organizationId },
+      where: { id: leadId, ...leadVisibilityWhere(tenant) },
     });
     if (!lead) return { ok: false, error: "Lead not found" };
 
@@ -435,13 +451,14 @@ export async function changeLeadStageAction(
     const tenant = await requirePermission("lead.change_stage");
     const [lead, stage] = await Promise.all([
       prisma.lead.findFirst({
-        where: { id: leadId, organizationId: tenant.organizationId },
+        where: { id: leadId, ...leadVisibilityWhere(tenant) },
       }),
       prisma.leadStage.findFirst({
         where: { id: stageId, organizationId: tenant.organizationId },
       }),
     ]);
     if (!lead || !stage) return { ok: false, error: "Lead or stage not found" };
+    if (stage.isWon) await requirePermission("lead.convert");
 
     let status: LeadStatus | undefined;
     if (stage.isWon) status = LeadStatus.CONVERTED;
@@ -489,7 +506,7 @@ export async function changeLeadStatusAction(
   try {
     const tenant = await requirePermission("lead.edit");
     const lead = await prisma.lead.findFirst({
-      where: { id: leadId, organizationId: tenant.organizationId },
+      where: { id: leadId, ...leadVisibilityWhere(tenant) },
     });
     if (!lead) return { ok: false, error: "Lead not found" };
 
@@ -578,6 +595,7 @@ export async function bulkLeadAction(formData: FormData): Promise<ActionResult> 
     const data: Prisma.LeadUncheckedUpdateManyInput = {};
     if (op === "assign") {
       const assignedUserId = String(formData.get("assignedUserId") ?? "") || null;
+      if (assignedUserId) await assertActiveMember(tenant.organizationId, assignedUserId);
       data.assignedUserId = assignedUserId;
     } else if (op === "stage") {
       const stageId = String(formData.get("stageId") ?? "");
@@ -585,6 +603,7 @@ export async function bulkLeadAction(formData: FormData): Promise<ActionResult> 
         where: { id: stageId, organizationId: tenant.organizationId },
       });
       if (!stage) return { ok: false, error: "Stage not found" };
+      if (stage.isWon) await requirePermission("lead.convert");
       data.stageId = stage.id;
       data.pipelineId = stage.pipelineId;
     } else if (op === "status") {

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAuth, requirePermission } from "@/lib/tenant";
 import { seedOrganizationRoles } from "@/lib/permissions/seed-org-roles";
 import { seedOrganizationLeadDefaults } from "@/lib/leads/seed-defaults";
+import { seedDefaultCompany } from "@/features/companies/service";
 import {
   createOrganizationSchema,
   slugify,
@@ -85,6 +86,7 @@ export async function createOrganizationAction(
           skipPermissionSeed: true,
         });
         await seedOrganizationLeadDefaults(tx, org.id);
+        await seedDefaultCompany(tx, org);
         const ownerRoleId = rolesByCode.get("owner");
         if (!ownerRoleId) {
           throw new Error("Owner role was not created");
