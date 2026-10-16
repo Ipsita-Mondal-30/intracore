@@ -36,7 +36,7 @@ export async function listVendors(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["name", "legalName", "email", "phone", "gstin", "code"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.vendor.findMany({ where, include: { _count: { select: { purchaseOrders: true } } }, ...listArgs(q, ["createdAt", "name"], "name") }),
       prisma.vendor.count({ where }),
     ]),

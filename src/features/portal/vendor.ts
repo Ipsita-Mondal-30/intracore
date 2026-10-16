@@ -50,7 +50,7 @@ export async function listPurchaseOrders(p: PortalContext, query: unknown = {}) 
   const q = listQuerySchema.parse(query);
   const where = visiblePo(p);
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.purchaseOrder.findMany({ where, select: poSelect, ...listArgs(q, ["createdAt", "orderDate", "number"], "orderDate") }),
       prisma.purchaseOrder.count({ where }),
     ]),
@@ -101,7 +101,7 @@ export async function listGoodsReceipts(p: PortalContext, query: unknown = {}) {
     purchaseOrderId: q.purchaseOrderId,
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.stockEntry.findMany({
         where,
         select: {
@@ -124,7 +124,7 @@ export async function listBills(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.parse(query);
   const where: Prisma.VendorBillWhereInput = vendorOf(p);
   const page = await paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.vendorBill.findMany({
         where,
         select: {
@@ -161,7 +161,7 @@ export async function listPayments(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.parse(query);
   const where: Prisma.VendorPaymentWhereInput = { ...vendorOf(p), status: FinanceDocStatus.POSTED };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.vendorPayment.findMany({
         where,
         select: {

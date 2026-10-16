@@ -216,6 +216,6 @@ export async function loyaltyStatement(ctx: AccessContext, customerId: string, q
   const q = listQuerySchema.parse(query);
   const where = { organizationId: ctx.organizationId, customerId };
   return paginate(q, () =>
-    prisma.$transaction([prisma.loyaltyLedgerEntry.findMany({ where, ...listArgs(q, ["createdAt"], "createdAt") }), prisma.loyaltyLedgerEntry.count({ where })]),
+    Promise.all([prisma.loyaltyLedgerEntry.findMany({ where, ...listArgs(q, ["createdAt"], "createdAt") }), prisma.loyaltyLedgerEntry.count({ where })]),
   );
 }

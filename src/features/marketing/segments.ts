@@ -259,7 +259,7 @@ export async function listSegments(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ entity: z.enum(SEGMENT_ENTITIES).optional() }).parse(query);
   const where: Prisma.SegmentWhereInput = { organizationId: ctx.organizationId, entity: q.entity, ...searchWhere(q.q, ["name"]) };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.segment.findMany({ where, include: { _count: { select: { campaigns: true } } }, ...listArgs(q, ["createdAt", "name"], "createdAt") }),
       prisma.segment.count({ where }),
     ]),

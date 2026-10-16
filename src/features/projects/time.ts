@@ -129,7 +129,7 @@ export async function listTimeEntries(ctx: AccessContext, query: unknown) {
   };
   const [page, sum] = await Promise.all([
     paginate(q, () =>
-      prisma.$transaction([
+      Promise.all([
         prisma.timeEntry.findMany({
           where,
           include: { project: { select: { id: true, code: true, name: true } }, task: { select: { id: true, title: true } } },

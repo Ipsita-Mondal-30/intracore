@@ -139,7 +139,7 @@ export async function listMyExports(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.parse(query);
   const where = { organizationId: ctx.organizationId, requestedById: ctx.userId };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.dataExport.findMany({ where, select: publicFields, ...listArgs(q, ["createdAt"], "createdAt") }),
       prisma.dataExport.count({ where }),
     ]),

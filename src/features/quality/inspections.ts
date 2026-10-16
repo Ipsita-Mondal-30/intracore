@@ -109,7 +109,7 @@ export async function listInspectionTemplates(ctx: AccessContext, query: unknown
     ...searchWhere(q.q, ["name"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.inspectionTemplate.findMany({ where, include: { ...templateInclude, _count: { select: { inspections: true } } }, ...listArgs(q, ["createdAt", "name"], "name") }),
       prisma.inspectionTemplate.count({ where }),
     ]),
@@ -362,7 +362,7 @@ export async function listInspections(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.inspection.findMany({
         where,
         include: { template: { select: { id: true, name: true } }, nonConformances: { select: { id: true, number: true, status: true } } },

@@ -65,7 +65,7 @@ export async function listSalesOrders(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.salesOrder.findMany({
         where,
         include: { customer: { select: { id: true, name: true } }, company: { select: { code: true } } },

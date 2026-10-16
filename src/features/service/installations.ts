@@ -182,7 +182,7 @@ export async function listInstallationJobs(ctx: AccessContext, query: unknown) {
     .parse(query);
   const where: Prisma.InstallationJobWhereInput = { ...jobScope(ctx), status: q.status, customerId: q.customerId, ...searchWhere(q.q, ["number", "address"]) };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.installationJob.findMany({ where, include: { customer: { select: { id: true, name: true } } }, ...listArgs(q, ["createdAt", "scheduledStart", "number"], "createdAt") }),
       prisma.installationJob.count({ where }),
     ]),

@@ -75,7 +75,7 @@ export async function listFeedback(ctx: AccessContext, query: unknown) {
   const q = filterSchema.parse(query);
   const where = feedbackWhere(ctx, q);
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.customerFeedback.findMany({
         where,
         include: { customer: { select: { id: true, name: true } }, campaign: { select: { id: true, name: true } } },

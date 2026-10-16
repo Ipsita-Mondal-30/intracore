@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/db/prisma";
+import { ACCESS_TTL, accessTag, sharedCache } from "@/lib/cache/request-cache";
 import { AppError } from "@/lib/errors";
 import {
   buildTenantContext,
@@ -24,34 +25,40 @@ export async function buildAccessContext(
   return withScopes(await buildTenantContext(userId, organizationId));
 }
 
-async function withScopes(tenant: TenantContext): Promise<AccessContext> {
-  const companies = new Map<string, Set<string> | "all">();
+type ScopeRow = { companyId: string; branchId: string | null };
 
+/** Owners get every company; others their MemberScope rows. */
+async function loadScopes(tenant: TenantContext): Promise<ScopeRow[]> {
   if (tenant.isOwner) {
-    const rows = await prisma.company.findMany({
-      where: { organizationId: tenant.organizationId },
-      select: { id: true },
-    });
-    for (const row of rows) companies.set(row.id, "all");
-  } else {
-    const scopes = await prisma.memberScope.findMany({
-      where: { organizationId: tenant.organizationId, memberId: tenant.membershipId },
-      select: { companyId: true, branchId: true },
-    });
-    for (const { companyId, branchId } of scopes) {
-      const current = companies.get(companyId);
-      if (current === "all") continue;
-      if (!branchId) companies.set(companyId, "all");
-      else companies.set(companyId, new Set([...(current ?? []), branchId]));
-    }
+    const rows = await prisma.company.findMany({ where: { organizationId: tenant.organizationId }, select: { id: true } });
+    return rows.map((r) => ({ companyId: r.id, branchId: null }));
   }
+  return prisma.memberScope.findMany({
+    where: { organizationId: tenant.organizationId, memberId: tenant.membershipId },
+    select: { companyId: true, branchId: true },
+  });
+}
 
+async function withScopes(tenant: TenantContext, shared = false): Promise<AccessContext> {
+  const companies = new Map<string, Set<string> | "all">();
+  const rows = shared
+    ? await sharedCache(() => loadScopes(tenant), ["scopes", tenant.organizationId, tenant.membershipId, String(tenant.isOwner)], {
+        tags: [accessTag(tenant.organizationId)],
+        revalidate: ACCESS_TTL,
+      })
+    : await loadScopes(tenant);
+  for (const { companyId, branchId } of rows) {
+    const current = companies.get(companyId);
+    if (current === "all") continue;
+    if (!branchId) companies.set(companyId, "all");
+    else companies.set(companyId, new Set([...(current ?? []), branchId]));
+  }
   return { ...tenant, companies };
 }
 
 /** Request-scoped access context for the signed-in user (401/403 via AppError). */
 export const getAccessContext = cache(async () =>
-  withScopes(await requireOrganizationAccess()),
+  withScopes(await requireOrganizationAccess(), true),
 );
 
 export function can(ctx: TenantContext, permission: string) {

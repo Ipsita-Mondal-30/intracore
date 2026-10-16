@@ -178,7 +178,7 @@ export async function listTasks(ctx: AccessContext, query: unknown) {
     ],
   };
   const page = await paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.projectTask.findMany({
         where,
         include: { project: { select: { id: true, code: true, name: true } }, milestone: { select: { id: true, name: true } }, _count: { select: { subtasks: true } } },
