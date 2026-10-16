@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
-import { assertCompanyAccess, type AccessContext } from "@/lib/access";
+import { assertCompanyAccess, can, type AccessContext } from "@/lib/access";
 import { leadVisibilityWhere } from "@/features/leads/scope";
 
 /**
@@ -28,10 +28,37 @@ const resolvers: Record<string, Resolver> = {
     });
     return lead ? { companyId: null } : null;
   },
+  customer: orgRecord("customer.view", (ctx, id) =>
+    prisma.customer.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { id: true } })),
+  contact: orgRecord("contact.view", (ctx, id) =>
+    prisma.contact.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { id: true } })),
+  opportunity: orgRecord("opportunity.view", (ctx, id) =>
+    prisma.opportunity.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { id: true } })),
+  product: orgRecord("product.view", (ctx, id) =>
+    prisma.product.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { id: true } })),
+  quotation: companyRecord("quotation.view", (ctx, id) =>
+    prisma.quotation.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  sales_order: companyRecord("sales_order.view", (ctx, id) =>
+    prisma.salesOrder.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
 };
 
-export function registerEntity(type: string, resolver: Resolver) {
-  resolvers[type] = resolver;
+/** Org-level record: caller needs the view permission and the row must be in the tenant. */
+function orgRecord(permission: string, find: (ctx: AccessContext, id: string) => Promise<unknown>): Resolver {
+  return async (ctx, id) => (can(ctx, permission) && (await find(ctx, id)) ? { companyId: null } : null);
+}
+
+/** Company-scoped record: also requires a scope covering its company/branch. */
+function companyRecord(
+  permission: string,
+  find: (ctx: AccessContext, id: string) => Promise<{ companyId: string; branchId: string | null } | null>,
+): Resolver {
+  return async (ctx, id) => {
+    if (!can(ctx, permission)) return null;
+    const row = await find(ctx, id);
+    if (!row) return null;
+    assertCompanyAccess(ctx, row.companyId, row.branchId);
+    return { companyId: row.companyId };
+  };
 }
 
 export const entityTypes = () => Object.keys(resolvers);

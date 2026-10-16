@@ -6,6 +6,7 @@ import { requireAuth, requirePermission } from "@/lib/tenant";
 import { seedOrganizationRoles } from "@/lib/permissions/seed-org-roles";
 import { seedOrganizationLeadDefaults } from "@/lib/leads/seed-defaults";
 import { seedDefaultCompany } from "@/features/companies/service";
+import { seedCatalogDefaults } from "@/features/catalog/defaults";
 import {
   createOrganizationSchema,
   slugify,
@@ -87,6 +88,7 @@ export async function createOrganizationAction(
         });
         await seedOrganizationLeadDefaults(tx, org.id);
         await seedDefaultCompany(tx, org);
+        await seedCatalogDefaults(tx, org.id);
         const ownerRoleId = rolesByCode.get("owner");
         if (!ownerRoleId) {
           throw new Error("Owner role was not created");

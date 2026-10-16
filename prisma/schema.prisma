@@ -45,6 +45,16 @@ model User {
   assignedWorkTasks   Task[]                    @relation("TaskAssignee")
   createdWorkTasks    Task[]                    @relation("TaskCreator")
   uploadedDocuments   Document[]
+  ownedCustomers      Customer[]                @relation("CustomerOwner")
+  createdCustomers    Customer[]                @relation("CustomerCreator")
+  createdContacts     Contact[]                 @relation("ContactCreator")
+  ownedOpportunities  Opportunity[]             @relation("OpportunityOwner")
+  createdOpportunities Opportunity[]            @relation("OpportunityCreator")
+  crmActivities       Activity[]                @relation("ActivityActor")
+  createdProducts     Product[]                 @relation("ProductCreator")
+  createdQuotations   Quotation[]               @relation("QuotationCreator")
+  approvedQuotations  Quotation[]               @relation("QuotationApprover")
+  createdSalesOrders  SalesOrder[]              @relation("SalesOrderCreator")
 
   @@map("users")
 }
@@ -111,6 +121,19 @@ model Organization {
   tasks         Task[]
   documents     Document[]
   idempotencyKeys IdempotencyKey[]
+  customers     Customer[]
+  contacts      Contact[]
+  opportunities Opportunity[]
+  crmActivities Activity[]
+  uoms          Uom[]
+  productCategories ProductCategory[]
+  taxRates      TaxRate[]
+  products      Product[]
+  customerPrices CustomerPrice[]
+  quotations    Quotation[]
+  quotationLines QuotationLine[]
+  salesOrders   SalesOrder[]
+  salesOrderLines SalesOrderLine[]
 
   @@map("organizations")
 }
@@ -474,6 +497,8 @@ model Lead {
   callbackAt       DateTime?
   lastScoreUpdatedAt DateTime?
   convertedAt      DateTime?
+  convertedCustomerId String?
+  convertedContactId  String?
   lostReason       String?
   lostComment      String?
   archivedAt       DateTime?
@@ -501,7 +526,11 @@ model Lead {
   communications LeadCommunication[]
   linkedInquiries Inquiry[]
   conversations Conversation[]
+  convertedCustomer Customer? @relation("LeadConvertedCustomer", fields: [organizationId, convertedCustomerId], references: [organizationId, id], onDelete: NoAction)
+  convertedContact  Contact?  @relation("LeadConvertedContact", fields: [organizationId, convertedContactId], references: [organizationId, id], onDelete: NoAction)
+  opportunity       Opportunity? @relation("LeadOpportunity")
 
+  @@unique([organizationId, id])
   @@index([organizationId, email])
   @@index([organizationId, phone])
   @@index([organizationId, status])
@@ -1052,6 +1081,8 @@ model Company {
   branches        Branch[]
   memberScopes    MemberScope[]
   numberSequences NumberSequence[]
+  quotations      Quotation[]
+  salesOrders     SalesOrder[]
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -1074,6 +1105,8 @@ model Branch {
 
   company      Company       @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: Cascade)
   memberScopes MemberScope[]
+  quotations   Quotation[]
+  salesOrders  SalesOrder[]
 
   @@unique([companyId, code])
   @@unique([organizationId, id])
@@ -1189,3 +1222,492 @@ model Document {
   @@index([organizationId, entityType, entityId])
   @@map("documents")
 }
+
+// ─── CRM: customers, contacts, opportunities, interactions ───────────────────
+// Org-level master data (shared by every company of the tenant). Records are
+// archived via `status`, never hard-deleted, so references use NoAction.
+
+enum CustomerType {
+  BUSINESS
+  INDIVIDUAL
+}
+
+enum OpportunityStage {
+  PROSPECTING
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+}
+
+model Customer {
+  id               String       @id @default(cuid())
+  organizationId   String
+  code             String?
+  name             String
+  legalName        String?
+  type             CustomerType @default(BUSINESS)
+  email            String?
+  phone            String?
+  website          String?
+  gstin            String?
+  pan              String?
+  /// GST state code used as the default place of supply
+  stateCode        String?
+  billingAddress   String?
+  shippingAddress  String?
+  paymentTermsDays Int?
+  creditLimit      Decimal?     @db.Decimal(18, 2)
+  ownerUserId      String?      @db.Uuid
+  status           RecordStatus @default(ACTIVE)
+  notes            String?
+  createdById      String       @db.Uuid
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner          User?           @relation("CustomerOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy      User            @relation("CustomerCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  contacts       Contact[]
+  opportunities  Opportunity[]
+  activities     Activity[]
+  convertedLeads Lead[]          @relation("LeadConvertedCustomer")
+  prices         CustomerPrice[]
+  quotations     Quotation[]
+  salesOrders    SalesOrder[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, code])
+  @@unique([organizationId, gstin])
+  @@index([organizationId, name])
+  @@index([organizationId, email])
+  @@index([organizationId, phone])
+  @@map("customers")
+}
+
+model Contact {
+  id             String       @id @default(cuid())
+  organizationId String
+  customerId     String?
+  firstName      String
+  lastName       String?
+  fullName       String
+  email          String?
+  phone          String?
+  jobTitle       String?
+  isPrimary      Boolean      @default(false)
+  status         RecordStatus @default(ACTIVE)
+  notes          String?
+  createdById    String       @db.Uuid
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer       Customer?     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  createdBy      User          @relation("ContactCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  opportunities  Opportunity[]
+  activities     Activity[]
+  convertedLeads Lead[]        @relation("LeadConvertedContact")
+  quotations     Quotation[]
+  salesOrders    SalesOrder[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, customerId])
+  @@index([organizationId, email])
+  @@index([organizationId, phone])
+  @@map("contacts")
+}
+
+model Opportunity {
+  id                String           @id @default(cuid())
+  organizationId    String
+  customerId        String
+  contactId         String?
+  leadId            String?
+  name              String
+  stage             OpportunityStage @default(PROSPECTING)
+  probability       Int              @default(10)
+  amount            Decimal          @default(0) @db.Decimal(18, 2)
+  currency          String           @default("INR")
+  expectedCloseDate DateTime?        @db.Date
+  ownerUserId       String?          @db.Uuid
+  lossReason        String?
+  closedAt          DateTime?
+  description       String?
+  createdById       String           @db.Uuid
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  contact      Contact?     @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: NoAction)
+  lead         Lead?        @relation("LeadOpportunity", fields: [organizationId, leadId], references: [organizationId, id], onDelete: NoAction)
+  owner        User?        @relation("OpportunityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("OpportunityCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  activities   Activity[]
+  quotations   Quotation[]
+
+  /// One opportunity per converted lead (retry-safe conversion)
+  @@unique([organizationId, leadId])
+  @@unique([organizationId, id])
+  @@index([organizationId, stage])
+  @@index([organizationId, customerId])
+  @@index([organizationId, ownerUserId])
+  @@index([organizationId, expectedCloseDate])
+  @@map("opportunities")
+}
+
+/// Logged interaction (call, email, meeting, note) on customers / contacts / opportunities.
+model Activity {
+  id             String                  @id @default(cuid())
+  organizationId String
+  type           ActivityType
+  subject        String
+  body           String?
+  direction      CommunicationDirection?
+  occurredAt     DateTime                @default(now())
+  durationMin    Int?
+  outcome        String?
+  customerId     String?
+  contactId      String?
+  opportunityId  String?
+  actorId        String?                 @db.Uuid
+  createdAt      DateTime                @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  contact      Contact?     @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: NoAction)
+  opportunity  Opportunity? @relation(fields: [organizationId, opportunityId], references: [organizationId, id], onDelete: NoAction)
+  actor        User?        @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, customerId, occurredAt])
+  @@index([organizationId, contactId, occurredAt])
+  @@index([organizationId, opportunityId, occurredAt])
+  @@map("crm_activities")
+}
+
+// ─── Catalog: units, categories, taxes, products, customer prices ────────────
+
+enum ProductType {
+  GOODS
+  SERVICE
+}
+
+model Uom {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products       Product[]
+  quotationLines QuotationLine[]
+  salesOrderLines SalesOrderLine[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, id])
+  @@map("uoms")
+}
+
+model ProductCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  parentId       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       ProductCategory?  @relation("CategoryTree", fields: [organizationId, parentId], references: [organizationId, id], onDelete: NoAction)
+  children     ProductCategory[] @relation("CategoryTree")
+  products     Product[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, id])
+  @@map("product_categories")
+}
+
+model TaxRate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  /// Total GST rate in percent; split into CGST+SGST (intra-state) or IGST (inter-state)
+  rate           Decimal  @db.Decimal(6, 3)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products        Product[]
+  quotationLines  QuotationLine[]
+  salesOrderLines SalesOrderLine[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, id])
+  @@map("tax_rates")
+}
+
+model Product {
+  id             String       @id @default(cuid())
+  organizationId String
+  sku            String
+  barcode        String?
+  name           String
+  description    String?
+  type           ProductType  @default(GOODS)
+  categoryId     String?
+  uomId          String
+  /// HSN (goods) / SAC (services) code for GST
+  hsnCode        String?
+  taxRateId      String?
+  salesPrice     Decimal      @default(0) @db.Decimal(18, 2)
+  purchasePrice  Decimal      @default(0) @db.Decimal(18, 2)
+  status         RecordStatus @default(ACTIVE)
+  createdById    String       @db.Uuid
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category        ProductCategory? @relation(fields: [organizationId, categoryId], references: [organizationId, id], onDelete: NoAction)
+  uom             Uom              @relation(fields: [organizationId, uomId], references: [organizationId, id], onDelete: NoAction)
+  taxRate         TaxRate?         @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+  createdBy       User             @relation("ProductCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  customerPrices  CustomerPrice[]
+  quotationLines  QuotationLine[]
+  salesOrderLines SalesOrderLine[]
+
+  @@unique([organizationId, sku])
+  @@unique([organizationId, barcode])
+  @@unique([organizationId, id])
+  @@index([organizationId, name])
+  @@map("products")
+}
+
+/// Negotiated unit price for one customer; overrides Product.salesPrice on new documents.
+model CustomerPrice {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String
+  productId      String
+  unitPrice      Decimal  @db.Decimal(18, 2)
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  product      Product      @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([customerId, productId])
+  @@map("customer_prices")
+}
+
+// ─── Sales: quotations and sales orders ──────────────────────────────────────
+
+enum QuotationStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  SUPERSEDED
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
+}
+
+model Quotation {
+  id                 String          @id @default(cuid())
+  organizationId     String
+  companyId          String
+  branchId           String
+  number             String
+  revision           Int             @default(1)
+  previousRevisionId String?
+  customerId         String
+  contactId          String?
+  opportunityId      String?
+  status             QuotationStatus @default(DRAFT)
+  issueDate          DateTime        @default(now()) @db.Date
+  validUntil         DateTime        @db.Date
+  currency           String          @default("INR")
+  /// GST state code of the buyer; equal to the branch state => CGST+SGST, else IGST
+  placeOfSupplyState String?
+  terms              String?
+  notes              String?
+  subtotal           Decimal         @default(0) @db.Decimal(18, 2)
+  discountTotal      Decimal         @default(0) @db.Decimal(18, 2)
+  taxableTotal       Decimal         @default(0) @db.Decimal(18, 2)
+  taxTotal           Decimal         @default(0) @db.Decimal(18, 2)
+  grandTotal         Decimal         @default(0) @db.Decimal(18, 2)
+  approvalRequired   Boolean         @default(false)
+  approvalReason     String?
+  approvalNote       String?
+  submittedAt        DateTime?
+  approvedById       String?         @db.Uuid
+  approvedAt         DateTime?
+  sentAt             DateTime?
+  decidedAt          DateTime?
+  rejectionReason    String?
+  createdById        String          @db.Uuid
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company          Company         @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch           Branch          @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  customer         Customer        @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  contact          Contact?        @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: NoAction)
+  opportunity      Opportunity?    @relation(fields: [organizationId, opportunityId], references: [organizationId, id], onDelete: NoAction)
+  previousRevision Quotation?      @relation("QuotationRevision", fields: [organizationId, previousRevisionId], references: [organizationId, id], onDelete: NoAction)
+  nextRevision     Quotation?      @relation("QuotationRevision")
+  approvedBy       User?           @relation("QuotationApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdBy        User            @relation("QuotationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines            QuotationLine[]
+  salesOrder       SalesOrder?
+
+  @@unique([companyId, number, revision])
+  /// A revision can only be superseded once
+  @@unique([organizationId, previousRevisionId])
+  @@unique([organizationId, id])
+  @@index([organizationId, companyId, status])
+  @@index([organizationId, customerId])
+  @@index([organizationId, opportunityId])
+  @@map("quotations")
+}
+
+model QuotationLine {
+  id              String   @id @default(cuid())
+  organizationId  String
+  quotationId     String
+  sortOrder       Int      @default(0)
+  productId       String?
+  description     String
+  quantity        Decimal  @db.Decimal(18, 4)
+  uomId           String?
+  unitPrice       Decimal  @db.Decimal(18, 2)
+  discountPercent Decimal  @default(0) @db.Decimal(5, 2)
+  taxRateId       String?
+  /// Snapshot of the GST rate at the time the line was priced
+  taxRate         Decimal  @default(0) @db.Decimal(6, 3)
+  grossAmount     Decimal  @db.Decimal(18, 2)
+  discountAmount  Decimal  @db.Decimal(18, 2)
+  taxableAmount   Decimal  @db.Decimal(18, 2)
+  cgstAmount      Decimal  @default(0) @db.Decimal(18, 2)
+  sgstAmount      Decimal  @default(0) @db.Decimal(18, 2)
+  igstAmount      Decimal  @default(0) @db.Decimal(18, 2)
+  taxAmount       Decimal  @db.Decimal(18, 2)
+  lineTotal       Decimal  @db.Decimal(18, 2)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quotation       Quotation        @relation(fields: [organizationId, quotationId], references: [organizationId, id], onDelete: Cascade)
+  product         Product?         @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  uom             Uom?             @relation(fields: [organizationId, uomId], references: [organizationId, id], onDelete: NoAction)
+  tax             TaxRate?         @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+  salesOrderLines SalesOrderLine[]
+
+  @@unique([organizationId, id])
+  @@index([quotationId])
+  @@map("quotation_lines")
+}
+
+model SalesOrder {
+  id                   String           @id @default(cuid())
+  organizationId       String
+  companyId            String
+  branchId             String
+  number               String
+  quotationId          String?
+  customerId           String
+  contactId            String?
+  status               SalesOrderStatus @default(DRAFT)
+  orderDate            DateTime         @default(now()) @db.Date
+  expectedDeliveryDate DateTime?        @db.Date
+  currency             String           @default("INR")
+  placeOfSupplyState   String?
+  customerPoNumber     String?
+  shippingAddress      String?
+  deliveryInstructions String?
+  notes                String?
+  subtotal             Decimal          @default(0) @db.Decimal(18, 2)
+  discountTotal        Decimal          @default(0) @db.Decimal(18, 2)
+  taxableTotal         Decimal          @default(0) @db.Decimal(18, 2)
+  taxTotal             Decimal          @default(0) @db.Decimal(18, 2)
+  grandTotal           Decimal          @default(0) @db.Decimal(18, 2)
+  amendmentCount       Int              @default(0)
+  confirmedAt          DateTime?
+  cancelledAt          DateTime?
+  cancelReason         String?
+  createdById          String           @db.Uuid
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company          @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: NoAction)
+  branch       Branch           @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: NoAction)
+  quotation    Quotation?       @relation(fields: [organizationId, quotationId], references: [organizationId, id], onDelete: NoAction)
+  customer     Customer         @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  contact      Contact?         @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: NoAction)
+  createdBy    User             @relation("SalesOrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines        SalesOrderLine[]
+
+  @@unique([companyId, number])
+  /// One sales order per quotation (retry-safe quote-to-order conversion)
+  @@unique([organizationId, quotationId])
+  @@unique([organizationId, id])
+  @@index([organizationId, companyId, status])
+  @@index([organizationId, customerId])
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id              String   @id @default(cuid())
+  organizationId  String
+  salesOrderId    String
+  sortOrder       Int      @default(0)
+  quotationLineId String?
+  productId       String?
+  description     String
+  quantity        Decimal  @db.Decimal(18, 4)
+  uomId           String?
+  unitPrice       Decimal  @db.Decimal(18, 2)
+  discountPercent Decimal  @default(0) @db.Decimal(5, 2)
+  taxRateId       String?
+  taxRate         Decimal  @default(0) @db.Decimal(6, 3)
+  grossAmount     Decimal  @db.Decimal(18, 2)
+  discountAmount  Decimal  @db.Decimal(18, 2)
+  taxableAmount   Decimal  @db.Decimal(18, 2)
+  cgstAmount      Decimal  @default(0) @db.Decimal(18, 2)
+  sgstAmount      Decimal  @default(0) @db.Decimal(18, 2)
+  igstAmount      Decimal  @default(0) @db.Decimal(18, 2)
+  taxAmount       Decimal  @db.Decimal(18, 2)
+  lineTotal       Decimal  @db.Decimal(18, 2)
+  deliveredQty    Decimal  @default(0) @db.Decimal(18, 4)
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesOrder    SalesOrder     @relation(fields: [organizationId, salesOrderId], references: [organizationId, id], onDelete: Cascade)
+  quotationLine QuotationLine? @relation(fields: [organizationId, quotationLineId], references: [organizationId, id], onDelete: NoAction)
+  product       Product?       @relation(fields: [organizationId, productId], references: [organizationId, id], onDelete: NoAction)
+  uom           Uom?           @relation(fields: [organizationId, uomId], references: [organizationId, id], onDelete: NoAction)
+  tax           TaxRate?       @relation(fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, id])
+  @@index([salesOrderId])
+  @@map("sales_order_lines")
+}
+

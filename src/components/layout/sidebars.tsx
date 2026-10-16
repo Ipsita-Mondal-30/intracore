@@ -29,6 +29,9 @@ import { logoutAction } from "@/features/auth/actions";
 const modules = [
   { href: "/dashboard", label: "Overview", color: "bg-[var(--ic-primary)]" },
   { href: "/leads", label: "Leads", color: "bg-[var(--ic-module-orange)]" },
+  { href: "/crm/customers", label: "CRM", color: "bg-emerald-500" },
+  { href: "/sales/quotations", label: "Sales", color: "bg-sky-500" },
+  { href: "/inventory/products", label: "Inventory", color: "bg-amber-500" },
   {
     href: "/settings/organization",
     label: "Organization",
@@ -128,6 +131,8 @@ const orgNavGroups: NavGroup[] = [
         icon: Building2,
       },
       { href: "/settings/companies", label: "Companies", icon: Building2 },
+      { href: "/settings/crm", label: "CRM rules", icon: Users },
+      { href: "/settings/catalog", label: "Units & taxes", icon: Package },
       { href: "/settings/users", label: "Users", icon: Users },
       { href: "/settings/roles", label: "Roles", icon: Shield },
       { href: "/settings/notifications", label: "Notifications", icon: Radio },
@@ -142,6 +147,39 @@ const orgNavGroups: NavGroup[] = [
         icon: Plug,
       },
     ],
+  },
+];
+
+/** Sidebar links for ERP sections, keyed by path prefix. */
+const sectionNav: { prefix: string; group: NavGroup }[] = [
+  {
+    prefix: "/crm",
+    group: {
+      title: "CRM",
+      items: [
+        { href: "/crm/customers", label: "Customers", icon: Building2 },
+        { href: "/crm/contacts", label: "Contacts", icon: Users },
+        { href: "/crm/opportunities", label: "Opportunities", icon: KanbanSquare },
+        { href: "/crm/reports", label: "Funnel", icon: BarChart3 },
+      ],
+    },
+  },
+  {
+    prefix: "/sales",
+    group: {
+      title: "SALES",
+      items: [
+        { href: "/sales/quotations", label: "Quotations", icon: ListTodo },
+        { href: "/sales/orders", label: "Sales orders", icon: CheckCircle2 },
+      ],
+    },
+  },
+  {
+    prefix: "/inventory",
+    group: {
+      title: "INVENTORY",
+      items: [{ href: "/inventory/products", label: "Products", icon: Package }],
+    },
   },
 ];
 
@@ -177,6 +215,10 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const firstName = userName.split(" ")[0] || userName;
+  const contextGroups = [
+    ...sectionNav.filter((section) => pathname.startsWith(section.prefix)).map((section) => section.group),
+    ...(pathname.startsWith("/settings") ? orgNavGroups : []),
+  ];
 
   return (
     <aside className="flex w-full max-w-[240px] shrink-0 flex-col py-5 pr-2 md:w-[240px]">
@@ -276,8 +318,8 @@ export function AppSidebar({
           </div>
         ))}
 
-        {pathname.startsWith("/settings")
-          ? orgNavGroups.map((group) => (
+        {contextGroups.length > 0
+          ? contextGroups.map((group) => (
               <div key={group.title}>
                 <p className="mb-2 px-3 text-2xs font-semibold tracking-wider text-subtle">
                   {group.title}

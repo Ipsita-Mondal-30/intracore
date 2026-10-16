@@ -1,0 +1,175 @@
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { isAppError } from "@/lib/errors";
+import { can, getAccessContext } from "@/lib/access";
+import { getSalesOrder } from "@/features/sales/orders";
+import { listCatalogLookups, listProducts } from "@/features/catalog/service";
+import { PageHeader } from "@/components/layout/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ApiForm, Field } from "@/components/erp/api-form";
+import { ActionButton } from "@/components/erp/action-button";
+import { LinesEditor } from "@/components/erp/lines-editor";
+import { StatusBadge } from "@/components/erp/status-badge";
+import { AuditTrail, DocumentLines, DocumentTotals } from "@/components/erp/document-view";
+import { dateInput, formatDate, formatQty } from "@/components/erp/format";
+
+export default async function SalesOrderPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const ctx = await getAccessContext();
+  const order = await getSalesOrder(ctx, id).catch((e) => {
+    if (isAppError(e) && e.status === 404) notFound();
+    throw e;
+  });
+
+  const nothingDelivered = order.lines.every((l) => l.deliveredQty.lte(0));
+  const openForChange = (order.status === "DRAFT" || order.status === "CONFIRMED") && nothingDelivered;
+  const canAmend = openForChange && can(ctx, "sales_order.update");
+  const [products, lookups] = canAmend && can(ctx, "product.view")
+    ? await Promise.all([listProducts(ctx, { pageSize: "100", status: "ACTIVE" }), listCatalogLookups(ctx)])
+    : [null, null];
+
+  const ordered = order.lines.reduce((sum, l) => sum + Number(l.quantity.toString()), 0);
+  const delivered = order.lines.reduce((sum, l) => sum + Number(l.deliveredQty.toString()), 0);
+  const percent = ordered > 0 ? Math.min(100, Math.round((delivered / ordered) * 100)) : 0;
+
+  const details: [string, ReactNode][] = [
+    ["Customer", <Link key="c" href={`/crm/customers/${order.customer.id}`} className="text-primary hover:underline">{order.customer.name}</Link>],
+    ["Contact", order.contact?.fullName ?? "—"],
+    ["Quotation", order.quotation ? (
+      <Link key="q" href={`/sales/quotations/${order.quotation.id}`} className="text-primary hover:underline">
+        {order.quotation.number}{order.quotation.revision > 1 ? ` R${order.quotation.revision}` : ""}
+      </Link>
+    ) : "—"],
+    ["Company / branch", `${order.company.code} · ${order.branch.name}`],
+    ["Order date", formatDate(order.orderDate)],
+    ["Expected delivery", formatDate(order.expectedDeliveryDate)],
+    ["Customer PO", order.customerPoNumber ?? "—"],
+    ["Place of supply", order.placeOfSupplyState ?? "—"],
+    ["Amendments", String(order.amendmentCount)],
+    ["Created by", order.createdBy.name ?? order.createdBy.email],
+  ];
+  if (!canAmend) {
+    details.push(
+      ["Shipping address", order.shippingAddress ?? "—"],
+      ["Delivery instructions", order.deliveryInstructions ?? "—"],
+      ["Notes", order.notes ?? "—"],
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        breadcrumbs={["Sales", "Orders", order.number]}
+        title={order.number}
+        subtitle={order.customer.name}
+        actions={
+          <>
+            <StatusBadge status={order.status} />
+            <Link href={`/print/orders/${id}`} target="_blank" className="text-sm text-primary hover:underline">Print</Link>
+            {order.status === "DRAFT" && can(ctx, "sales_order.update") ? (
+              <ActionButton path={`/sales-orders/${id}/confirm`} label="Confirm" variant="default" />
+            ) : null}
+            {openForChange && can(ctx, "sales_order.cancel") ? (
+              <ActionButton path={`/sales-orders/${id}/cancel`} label="Cancel order" prompt="Cancellation reason" variant="ghost" />
+            ) : null}
+          </>
+        }
+      />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <Card>
+            <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {order.status === "CANCELLED" ? (
+                <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">
+                  Cancelled {formatDate(order.cancelledAt)}{order.cancelReason ? `: “${order.cancelReason}”` : ""}
+                </p>
+              ) : null}
+              <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                {details.map(([label, value]) => (
+                  <div key={label}><dt className="text-subtle">{label}</dt><dd className="whitespace-pre-line">{value}</dd></div>
+                ))}
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Fulfilment</CardTitle></CardHeader>
+            <CardContent>
+              <div className="mb-4 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Delivered {formatQty(delivered)} of {formatQty(ordered)}</span>
+                  <span className="font-medium">{percent}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+                </div>
+              </div>
+              {order.lines.length ? (
+                <DocumentLines lines={order.lines} currency={order.currency} progressLabel="Delivered" />
+              ) : (
+                <p className="text-sm text-muted">No lines.</p>
+              )}
+              <DocumentTotals doc={order} currency={order.currency} />
+            </CardContent>
+          </Card>
+
+          {canAmend ? (
+            <Card>
+              <CardHeader><CardTitle>{order.status === "CONFIRMED" ? "Amend order" : "Edit order"}</CardTitle></CardHeader>
+              <CardContent>
+                {order.status === "CONFIRMED" ? (
+                  <p className="mb-3 text-xs text-muted">
+                    This order is confirmed. Saving records an amendment in the history with the previous lines and total.
+                    Amendments are blocked once anything is delivered.
+                  </p>
+                ) : null}
+                <ApiForm
+                  path={`/sales-orders/${id}`}
+                  method="PATCH"
+                  submitLabel={order.status === "CONFIRMED" ? "Save amendment" : "Save"}
+                  successMessage={order.status === "CONFIRMED" ? "Amendment saved" : "Saved"}
+                  className="grid gap-3 sm:grid-cols-3"
+                >
+                  <Field label="Customer PO number"><Input name="customerPoNumber" defaultValue={order.customerPoNumber ?? ""} data-nullable /></Field>
+                  <Field label="Expected delivery"><Input type="date" name="expectedDeliveryDate" defaultValue={dateInput(order.expectedDeliveryDate)} data-nullable /></Field>
+                  <Field label="Shipping address"><Input name="shippingAddress" defaultValue={order.shippingAddress ?? ""} data-nullable /></Field>
+                  <Field label="Delivery instructions" className="sm:col-span-3">
+                    <Textarea name="deliveryInstructions" rows={2} defaultValue={order.deliveryInstructions ?? ""} data-nullable />
+                  </Field>
+                  <div className="sm:col-span-3">
+                    <LinesEditor
+                      products={(products?.items ?? []).map((p) => ({ id: p.id, sku: p.sku, name: p.name, price: p.salesPrice.toString(), taxRateId: p.taxRateId }))}
+                      taxRates={(lookups?.taxRates ?? []).filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, rate: t.rate.toString() }))}
+                      initial={order.lines.map((l) => ({
+                        productId: l.productId ?? "",
+                        description: l.description,
+                        quantity: l.quantity.toString(),
+                        unitPrice: l.unitPrice.toString(),
+                        discountPercent: l.discountPercent.isZero() ? "" : l.discountPercent.toString(),
+                        taxRateId: l.taxRateId ?? "none",
+                      }))}
+                    />
+                  </div>
+                  <Field label="Notes" className="sm:col-span-3"><Textarea name="notes" rows={2} defaultValue={order.notes ?? ""} data-nullable /></Field>
+                </ApiForm>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+
+        <div className="space-y-4">
+          {/* Stock & deliveries card (inventory phase) goes above History. */}
+          <Card>
+            <CardHeader><CardTitle>History</CardTitle></CardHeader>
+            <CardContent><AuditTrail ctx={ctx} entity="sales_order" entityId={id} /></CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

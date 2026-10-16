@@ -20,6 +20,9 @@ import { leadVisibilityWhere } from "@/features/leads/scope";
 import { notifyLeadAssigned } from "@/lib/email/crm-notify";
 import { assertActiveMember, assertLeadRefs } from "@/lib/tenant/refs";
 
+const CONVERTED_LOCKED =
+  "This lead has been converted to a customer; continue on the customer and opportunity.";
+
 export type LeadActionResult =
   | { ok: true; message?: string; leadId?: string }
   | {
@@ -458,6 +461,7 @@ export async function changeLeadStageAction(
       }),
     ]);
     if (!lead || !stage) return { ok: false, error: "Lead or stage not found" };
+    if (lead.convertedCustomerId) return { ok: false, error: CONVERTED_LOCKED };
     if (stage.isWon) await requirePermission("lead.convert");
 
     let status: LeadStatus | undefined;
@@ -509,6 +513,7 @@ export async function changeLeadStatusAction(
       where: { id: leadId, ...leadVisibilityWhere(tenant) },
     });
     if (!lead) return { ok: false, error: "Lead not found" };
+    if (lead.convertedCustomerId) return { ok: false, error: CONVERTED_LOCKED };
 
     if (status === "CONVERTED") {
       await requirePermission("lead.convert");
@@ -566,7 +571,7 @@ async function scopedLeads(ids: string[], tenant: Awaited<ReturnType<typeof requ
       ...leadVisibilityWhere(tenant),
       archivedAt: null,
     },
-    select: { id: true },
+    select: { id: true, convertedCustomerId: true },
   });
 }
 
@@ -588,7 +593,9 @@ export async function bulkLeadAction(formData: FormData): Promise<ActionResult> 
             ? "lead.change_stage"
             : "lead.edit";
     const tenant = await requirePermission(permission);
-    const scoped = await scopedLeads(ids, tenant);
+    const scoped = (await scopedLeads(ids, tenant)).filter(
+      (lead) => !(lead.convertedCustomerId && (op === "stage" || op === "status")),
+    );
     const scopedIds = scoped.map((l) => l.id);
     if (scopedIds.length === 0) return { ok: false, error: "No matching leads" };
 

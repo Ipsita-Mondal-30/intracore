@@ -52,3 +52,63 @@ curl -X POST https://<host>/api/v1/tasks \
   --cookie "<supabase session cookies>" \
   -d '{"title":"Call back about the quote","entityType":"company","entityId":"cmp_...","dueAt":"2026-10-20T10:00:00Z","remindAt":"2026-10-20T09:30:00Z"}'
 ```
+
+## CRM (Phase 2)
+
+Customers, contacts, opportunities and products are organization-level master data shared
+by every company of the tenant; quotations and sales orders belong to one company + branch.
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET / POST (idem) | `/customers` | `customer.view` / `customer.create` | POST returns `409 DUPLICATE` with candidate matches in `details` unless `ignoreDuplicates: true` |
+| GET / PATCH | `/customers/:id` | `customer.view` / `customer.update` (`customer.delete` to archive via `status: "ARCHIVED"`) | |
+| GET | `/customers/duplicates?gstin=&email=&phone=&name=` | `customer.view` | Uses the org's matching rules |
+| GET | `/customers/:id/timeline` | `customer.view` | Interactions + history of leads converted into this customer |
+| GET / PUT | `/customers/:id/prices` | `customer.view` / `customer.update` | `{ prices: [{ productId, unitPrice | null }] }` |
+| GET / POST (idem) | `/contacts` | `contact.*` | Filter `customerId` |
+| GET / PATCH | `/contacts/:id` | `contact.*` | |
+| GET / POST (idem) | `/opportunities` | `opportunity.*` | Filters `stage`, `open=true|false`, `customerId`, `ownerUserId` |
+| GET / PATCH | `/opportunities/:id` | `opportunity.*` | Closed (WON/LOST) deals are read-only |
+| POST | `/opportunities/:id/stage` | `opportunity.update` | `{ stage, lossReason? }` — open stages move freely; LOST needs a reason; WON/LOST are terminal |
+| GET | `/opportunities/:id/timeline` | `opportunity.view` | |
+| POST (idem) | `/activities` | `activity.create` | `{ type: CALL|EMAIL|MEETING|NOTE, subject, customerId?|contactId?|opportunityId?, ... }` |
+| POST (idem) | `/leads/:id/convert` | `lead.convert` (+ `customer.create` / `contact.create` / `opportunity.create` for what it creates) | Transactional; retrying returns the first result with `alreadyConverted: true`; `409 DUPLICATE` unless `customerId` or `ignoreDuplicates` |
+| GET / PUT | `/crm/settings` | read: any member; write `crm.administer` | `{ duplicates: { customer: [gstin,email,phone,name], lead: [email,phone,whatsapp,company] } }` |
+| GET | `/crm/reports/funnel?from=&to=` | `crm.report` | Lead conversion, pipeline by stage (weighted), win rate, quotations, orders |
+
+## Catalog
+
+| Method | Path | Permission |
+|---|---|---|
+| GET / POST (idem) | `/products` | `product.view` / `product.create` |
+| GET / PATCH | `/products/:id` | `product.view` / `product.update` (`product.delete` to archive) |
+| GET | `/catalog/lookups` | `product.view` — units, categories, tax rates |
+| POST (idem) | `/uoms`, `/product-categories`, `/tax-rates` | `catalog.administer` |
+| PATCH | `/tax-rates/:id` | `catalog.administer` (name / active only; lines keep a rate snapshot) |
+
+## Sales
+
+Lines: `{ productId?, description?, quantity, uomId?, unitPrice?, discountPercent?, taxRateId? }`.
+Prices are tax-exclusive. A blank `unitPrice` uses the customer's negotiated price, then the
+product price; a blank `taxRateId` uses the product's rate. GST is CGST+SGST when the branch
+(or company) state equals the place of supply (default: the customer's state), else IGST.
+Each line is rounded half-up to 2 dp.
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET / POST (idem) | `/quotations` | `quotation.view` / `quotation.create` | Number from the company sequence; superseded revisions hidden unless `includeSuperseded=true` |
+| GET / PATCH | `/quotations/:id` | `quotation.view` / `quotation.update` | PATCH only while DRAFT |
+| POST (idem) | `/quotations/:id/submit` | `quotation.update` | → PENDING_APPROVAL when a line discount exceeds `settings.quotation.approvalDiscountPercent` or the total exceeds `approvalAmount`; otherwise APPROVED |
+| POST (idem) | `/quotations/:id/approve` · `/return` | `quotation.approve` | The author cannot approve their own quotation; `return` needs `{ note }` and goes back to DRAFT |
+| POST (idem) | `/quotations/:id/send` · `/accept` · `/reject` | `quotation.update` | accept requires a still-valid quote and marks a linked open opportunity WON; reject needs `{ reason }` |
+| POST (idem) | `/quotations/:id/cancel` | `quotation.delete` | |
+| POST (idem) | `/quotations/:id/revise` | `quotation.create` | New DRAFT revision (same number, revision+1); the old one becomes SUPERSEDED |
+| POST (idem) | `/quotations/:id/convert` | `sales_order.create` | ACCEPTED only; at most one sales order per quotation; repeats return `{ salesOrder, alreadyConverted: true }` |
+| GET / POST (idem) | `/sales-orders` | `sales_order.view` / `sales_order.create` | |
+| GET / PATCH | `/sales-orders/:id` | `sales_order.view` / `sales_order.update` | DRAFT: edit. CONFIRMED with nothing delivered: amendment (counted + audited). Otherwise 422 |
+| POST (idem) | `/sales-orders/:id/confirm` | `sales_order.update` | |
+| POST (idem) | `/sales-orders/:id/cancel` | `sales_order.cancel` | `{ reason }`; not after any delivery |
+
+Jobs added: `quotation-expiry` (APPROVED/SENT past valid-until → EXPIRED).
+
+Printable documents: `/print/quotations/:id`, `/print/orders/:id` (browser print / save as PDF).

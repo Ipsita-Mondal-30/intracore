@@ -91,7 +91,29 @@ export const PERMISSIONS: PermissionSeed[] = [
   ...perms("audit", "view"),
   ...perms("task", "create", "view_all"),
   ...perms("document", "view", "create", "delete"),
+
+  // CRM
+  ...perms("customer", "view", "create", "update", "delete", "export"),
+  ...perms("contact", "view", "create", "update", "delete"),
+  ...perms("opportunity", "view", "create", "update", "delete"),
+  ...perms("activity", "create"),
+  ...perms("crm", "report", "administer"),
+
+  // Catalog
+  ...perms("product", "view", "create", "update", "delete"),
+  ...perms("catalog", "administer"),
+
+  // Sales
+  ...perms("quotation", "view", "create", "update", "approve", "delete", "export"),
+  ...perms("sales_order", "view", "create", "update", "cancel", "export"),
 ];
+
+/** Every `module.action` code of the given modules (optionally only some actions). */
+function codes(modules: string[], actions?: string[]) {
+  return PERMISSIONS.filter(
+    (p) => modules.includes(p.module) && (!actions || actions.includes(p.code.split(".")[1])),
+  ).map((p) => p.code);
+}
 
 export type SystemRoleTemplate = {
   code: string;
@@ -142,6 +164,14 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "chat.view",
       "chat.send",
       "role.view",
+      "company.view",
+      "task.create",
+      "task.view_all",
+      "document.view",
+      "document.create",
+      "product.view",
+      "crm.report",
+      ...codes(["customer", "contact", "opportunity", "activity", "quotation", "sales_order"]),
     ],
   },
   {
@@ -159,6 +189,14 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "lead.log_calls",
       "chat.view",
       "chat.send",
+      "company.view",
+      "task.create",
+      "document.view",
+      "document.create",
+      "product.view",
+      "activity.create",
+      ...codes(["customer", "contact", "opportunity", "quotation"], ["view", "create", "update"]),
+      ...codes(["sales_order"], ["view", "create"]),
     ],
   },
   {
@@ -175,6 +213,9 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "lead.manage_sources",
       "integration.view",
       "integration.connect",
+      "customer.view",
+      "contact.view",
+      "crm.report",
     ],
   },
   {
@@ -212,13 +253,29 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "lead.manage_sources",
       "lead.manage_products",
       "lead.manage_custom_fields",
+      "company.view",
+      "task.create",
+      "task.view_all",
+      "document.view",
+      "document.create",
+      "product.view",
+      ...codes(["customer", "contact", "opportunity", "activity", "crm"]),
     ],
   },
   {
     code: "support_executive",
     name: "Support Executive",
     description: "Support access to lead information",
-    permissions: ["org.view", "dashboard.view", "lead.view", "chat.view"],
+    permissions: [
+      "org.view",
+      "dashboard.view",
+      "lead.view",
+      "chat.view",
+      "customer.view",
+      "contact.view",
+      "activity.create",
+      "task.create",
+    ],
   },
   {
     code: "viewer",
