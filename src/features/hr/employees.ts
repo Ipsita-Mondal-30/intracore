@@ -289,7 +289,7 @@ export async function listEmployees(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.employee.findMany({ where, include, ...listArgs(q, ["createdAt", "fullName", "employeeNumber", "joiningDate"], "employeeNumber") }),
       prisma.employee.count({ where }),
     ]),

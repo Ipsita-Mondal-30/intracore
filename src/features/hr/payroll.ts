@@ -153,7 +153,7 @@ export async function listSalaryStructures(ctx: AccessContext, query: unknown) {
     employee: { companyId: { in: fullCompanies(ctx) }, ...searchWhere(q.q, ["fullName", "employeeNumber"]) },
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.salaryStructure.findMany({ where, include: structureInclude, ...listArgs(q, ["effectiveFrom", "createdAt"], "effectiveFrom") }),
       prisma.salaryStructure.count({ where }),
     ]),
@@ -407,7 +407,7 @@ export async function listPayrollRuns(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ companyId: z.string().optional(), status: z.enum(["DRAFT", "CALCULATED", "APPROVED", "CANCELLED"]).optional() }).parse(query);
   const where: Prisma.PayrollRunWhereInput = { organizationId: ctx.organizationId, companyId: companyFilter(ctx, q.companyId), status: q.status };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.payrollRun.findMany({ where, include: { company: { select: { code: true, name: true } }, _count: { select: { payslips: true } } }, ...listArgs(q, ["period", "createdAt"], "period") }),
       prisma.payrollRun.count({ where }),
     ]),
@@ -550,7 +550,7 @@ export async function listPayslips(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ runId: z.string().optional(), employeeId: z.string().optional() }).parse(query);
   const where: Prisma.PayslipWhereInput = { AND: [payslipWhere(ctx), { runId: q.runId, employeeId: q.employeeId }] };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.payslip.findMany({
         where,
         include: { employee: { select: { fullName: true, employeeNumber: true } }, run: { select: { period: true, status: true, companyId: true } } },

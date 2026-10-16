@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
@@ -24,6 +25,13 @@ export type NotificationItem = {
   createdAt: string;
 };
 
+type NotificationData = {
+  notifications: NotificationItem[];
+  unreadNotificationCount: number;
+  browserNotificationsEnabled: boolean;
+};
+const NOTIFICATIONS_KEY = ["notifications"] as const;
+
 export function NotificationCenter({
   organizationId,
   userId,
@@ -38,42 +46,37 @@ export function NotificationCenter({
   browserNotificationsEnabled?: boolean;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications ?? []);
-  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(
-    initialBrowserNotificationsEnabled ?? false,
-  );
-  const [loaded, setLoaded] = useState(
-    initialNotifications !== undefined && initialUnreadCount !== undefined,
-  );
-  const [serverUnreadCount, setServerUnreadCount] = useState(initialUnreadCount ?? 0);
 
-  useEffect(() => {
-    if (loaded) return;
-
-    let cancelled = false;
-    void fetch("/api/notifications")
-      .then((res) => res.json())
-      .then((data: {
-        ok?: boolean;
-        notifications?: NotificationItem[];
-        unreadNotificationCount?: number;
-        browserNotificationsEnabled?: boolean;
-      }) => {
-        if (cancelled || !data.ok) return;
-        setNotifications(data.notifications ?? []);
-        setServerUnreadCount(data.unreadNotificationCount ?? 0);
-        setBrowserNotificationsEnabled(data.browserNotificationsEnabled ?? false);
-        setLoaded(true);
-      })
-      .catch(() => {
-        if (!cancelled) setLoaded(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loaded]);
+  // Cached (shared by every mount), refetched in the background every minute and on focus.
+  const { data } = useQuery({
+    queryKey: NOTIFICATIONS_KEY,
+    queryFn: async (): Promise<NotificationData> => {
+      const res = await fetch("/api/notifications");
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Failed to load notifications");
+      return {
+        notifications: json.notifications ?? [],
+        unreadNotificationCount: json.unreadNotificationCount ?? 0,
+        browserNotificationsEnabled: json.browserNotificationsEnabled ?? false,
+      };
+    },
+    initialData:
+      initialNotifications !== undefined && initialUnreadCount !== undefined
+        ? {
+            notifications: initialNotifications,
+            unreadNotificationCount: initialUnreadCount,
+            browserNotificationsEnabled: initialBrowserNotificationsEnabled ?? false,
+          }
+        : undefined,
+    refetchInterval: 60_000,
+  });
+  const notifications = data?.notifications ?? [];
+  const browserNotificationsEnabled = data?.browserNotificationsEnabled ?? false;
+  const serverUnreadCount = data?.unreadNotificationCount ?? 0;
+  const update = (fn: (d: NotificationData) => NotificationData) =>
+    queryClient.setQueryData<NotificationData>(NOTIFICATIONS_KEY, (d) => (d ? fn(d) : d));
 
   const { showNotification } = useBrowserNotifications(browserNotificationsEnabled);
 
@@ -82,7 +85,7 @@ export function NotificationCenter({
     userId,
     serverUnreadCount,
     (n) => {
-      setNotifications((prev) => [n, ...prev].slice(0, 30));
+      update((d) => ({ ...d, notifications: [n, ...d.notifications].slice(0, 30), unreadNotificationCount: d.unreadNotificationCount + 1 }));
       showNotification(n.title, { body: n.body ?? undefined });
     },
   );
@@ -91,11 +94,11 @@ export function NotificationCenter({
     if (!n.readAt) {
       await markNotificationReadAction(n.id);
       setUnreadCount((c) => Math.max(0, c - 1));
-      setNotifications((prev) =>
-        prev.map((item) =>
-          item.id === n.id ? { ...item, readAt: new Date().toISOString() } : item,
-        ),
-      );
+      update((d) => ({
+        ...d,
+        unreadNotificationCount: Math.max(0, d.unreadNotificationCount - 1),
+        notifications: d.notifications.map((item) => (item.id === n.id ? { ...item, readAt: new Date().toISOString() } : item)),
+      }));
     }
 
     const data =
@@ -112,9 +115,11 @@ export function NotificationCenter({
     const result = await markAllNotificationsReadAction();
     if (result.ok) {
       setUnreadCount(0);
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
-      );
+      update((d) => ({
+        ...d,
+        unreadNotificationCount: 0,
+        notifications: d.notifications.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
+      }));
       toast.success("All notifications marked read");
     }
   };

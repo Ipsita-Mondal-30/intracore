@@ -369,7 +369,7 @@ export async function listInvoices(ctx: AccessContext, query: unknown) {
     ],
   };
   const page = await paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.salesInvoice.findMany({
         where,
         include: { customer: { select: { id: true, name: true } } },
@@ -587,7 +587,7 @@ export async function listReceipts(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["number", "reference", "notes"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.paymentReceipt.findMany({ where, include: { customer: { select: { id: true, name: true } }, bankAccount: { select: { name: true } } }, ...listArgs(q, ["createdAt", "receiptDate", "amount"], "createdAt") }),
       prisma.paymentReceipt.count({ where }),
     ]),
@@ -768,7 +768,7 @@ export async function listCreditNotes(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ status: z.nativeEnum(FinanceDocStatus).optional(), customerId: z.string().optional(), invoiceId: z.string().optional() }).parse(query);
   const where: Prisma.CreditNoteWhereInput = { AND: [companyScopeWhere(ctx), { status: q.status, customerId: q.customerId, invoiceId: q.invoiceId }, searchWhere(q.q, ["number", "reason"])] };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.creditNote.findMany({ where, include: { customer: { select: { id: true, name: true } }, invoice: { select: { id: true, number: true } } }, ...listArgs(q, ["createdAt", "noteDate", "grandTotal"], "createdAt") }),
       prisma.creditNote.count({ where }),
     ]),

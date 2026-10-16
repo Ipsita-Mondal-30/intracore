@@ -56,7 +56,7 @@ export async function listVendorBills(ctx: AccessContext, query: unknown) {
     AND: [companyScopeWhere(ctx), { status: q.status, vendorId: q.vendorId, purchaseOrderId: q.purchaseOrderId }, searchWhere(q.q, ["number", "vendorInvoiceNumber", "notes"])],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.vendorBill.findMany({
         where,
         include: { vendor: { select: { id: true, name: true } }, purchaseOrder: { select: { id: true, number: true } } },

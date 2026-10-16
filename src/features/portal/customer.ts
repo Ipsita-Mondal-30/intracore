@@ -56,7 +56,7 @@ export async function listQuotations(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.extend({ status: z.nativeEnum(QuotationStatus).optional() }).parse(query);
   const where: Prisma.QuotationWhereInput = { ...customerOf(p), status: q.status && q.status !== "DRAFT" && q.status !== "PENDING_APPROVAL" ? q.status : VISIBLE_QUOTATION };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.quotation.findMany({ where, select: quotationSelect, ...listArgs(q, ["createdAt", "issueDate", "number"], "createdAt") }),
       prisma.quotation.count({ where }),
     ]),
@@ -80,7 +80,7 @@ export async function listOrders(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.parse(query);
   const where: Prisma.SalesOrderWhereInput = { ...customerOf(p), status: { not: SalesOrderStatus.DRAFT } };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.salesOrder.findMany({ where, select: orderSelect, ...listArgs(q, ["createdAt", "orderDate", "number"], "createdAt") }),
       prisma.salesOrder.count({ where }),
     ]),
@@ -127,7 +127,7 @@ export async function listInvoices(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.parse(query);
   const where: Prisma.SalesInvoiceWhereInput = { ...customerOf(p), status: FinanceDocStatus.POSTED };
   const page = await paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.salesInvoice.findMany({ where, select: invoiceSelect, ...listArgs(q, ["createdAt", "invoiceDate", "dueDate"], "invoiceDate") }),
       prisma.salesInvoice.count({ where }),
     ]),
@@ -163,7 +163,7 @@ export async function listPayments(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.parse(query);
   const where: Prisma.PaymentReceiptWhereInput = { ...customerOf(p), status: FinanceDocStatus.POSTED };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.paymentReceipt.findMany({
         where,
         select: {
@@ -213,7 +213,7 @@ export async function listTickets(p: PortalContext, query: unknown = {}) {
   const q = listQuerySchema.extend({ status: z.string().max(20).optional() }).parse(query);
   const where: Prisma.TicketWhereInput = { ...customerOf(p), status: q.status };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.ticket.findMany({ where, select: ticketSelect, ...listArgs(q, ["createdAt", "updatedAt", "number"], "createdAt") }),
       prisma.ticket.count({ where }),
     ]),

@@ -12,7 +12,7 @@ export async function listBackupRuns(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ status: z.enum(["RUNNING", "SUCCEEDED", "FAILED"]).optional() }).parse(query);
   const where = { status: q.status };
   const page = await paginate(q, () =>
-    prisma.$transaction([prisma.backupRun.findMany({ where, ...listArgs(q, ["startedAt"], "startedAt") }), prisma.backupRun.count({ where })]),
+    Promise.all([prisma.backupRun.findMany({ where, ...listArgs(q, ["startedAt"], "startedAt") }), prisma.backupRun.count({ where })]),
   );
   // BigInt is not JSON; sizes go out as strings like every other exact number.
   return { ...page, items: page.items.map((run) => ({ ...run, sizeBytes: run.sizeBytes?.toString() ?? null })) };

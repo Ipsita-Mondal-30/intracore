@@ -79,7 +79,7 @@ export async function listReminders(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.reminder.findMany({ where, ...listArgs(q, ["nextRunAt", "createdAt", "title"], "nextRunAt") }),
       prisma.reminder.count({ where }),
     ]),

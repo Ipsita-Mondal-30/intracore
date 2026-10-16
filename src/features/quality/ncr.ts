@@ -151,7 +151,7 @@ export async function listNonConformances(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.nonConformance.findMany({ where, ...listArgs(q, ["createdAt", "number"], "createdAt") }),
       prisma.nonConformance.count({ where }),
     ]),

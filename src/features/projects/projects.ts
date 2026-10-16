@@ -262,7 +262,7 @@ export async function listProjects(ctx: AccessContext, query: unknown) {
     ],
   };
   const page = await paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.project.findMany({ where, include: { customer: { select: { id: true, name: true } }, company: { select: { code: true } } }, ...listArgs(q, ["createdAt", "code", "name", "endDate", "status"], "createdAt") }),
       prisma.project.count({ where }),
     ]),

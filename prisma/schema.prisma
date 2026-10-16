@@ -1,5 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  /// One SQL query per findX with `include` (LATERAL joins) instead of one query per relation:
+  /// the database is a network round trip away, so this is the dominant page-load cost.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

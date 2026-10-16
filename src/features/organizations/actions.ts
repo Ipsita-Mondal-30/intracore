@@ -1,5 +1,6 @@
 "use server";
 
+import { invalidateAccess, invalidateUser } from "@/lib/cache/request-cache";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireAuth, requirePermission } from "@/lib/tenant";
@@ -123,6 +124,7 @@ export async function createOrganizationAction(
       { timeout: 60_000 },
     );
 
+    invalidateUser(session.userId);
     revalidatePath("/", "layout");
     return { ok: true };
   } catch (error) {
@@ -192,6 +194,7 @@ export async function updateOrganizationAction(
       },
     });
 
+    invalidateAccess(tenant.organizationId); // organization name/currency live in the cached tenant
     revalidatePath("/settings/organization");
     return { ok: true };
   } catch (error) {

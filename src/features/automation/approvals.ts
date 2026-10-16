@@ -111,7 +111,7 @@ export async function listApprovals(ctx: AccessContext, query: unknown) {
     AND: [q.scope === "all" ? visibleWhere(ctx, roleCode) : assignedWhere(ctx, roleCode), searchWhere(q.q, ["title"]), { status: q.status, runId: q.runId }],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.approvalRequest.findMany({ where, include: { run: { select: { id: true, workflow: { select: { id: true, name: true } } } } }, ...listArgs(q, ["createdAt", "dueAt"]) }),
       prisma.approvalRequest.count({ where }),
     ]),

@@ -100,7 +100,7 @@ export async function listWorkflows(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["name", "description"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.workflowDefinition.findMany({ where, include: { _count: { select: { runs: true } } }, ...listArgs(q, ["createdAt", "name", "updatedAt"]) }),
       prisma.workflowDefinition.count({ where }),
     ]),
@@ -119,7 +119,7 @@ export async function listWorkflowRuns(ctx: AccessContext, query: unknown) {
   const q = runListSchema.parse(query);
   const where: Prisma.WorkflowRunWhereInput = { organizationId: ctx.organizationId, workflowId: q.workflowId, status: q.status, entityId: q.entityId };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.workflowRun.findMany({ where, include: { workflow: { select: { id: true, name: true } } }, ...listArgs(q, ["startedAt", "finishedAt"], "startedAt") }),
       prisma.workflowRun.count({ where }),
     ]),

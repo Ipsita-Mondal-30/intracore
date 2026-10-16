@@ -36,7 +36,7 @@ export async function listNotificationHistory(ctx: AccessContext, query: unknown
   };
   const [page, unread] = await Promise.all([
     paginate(q, () =>
-      prisma.$transaction([
+      Promise.all([
         prisma.notification.findMany({ where, ...listArgs(q, ["createdAt"]) }),
         prisma.notification.count({ where }),
       ]),

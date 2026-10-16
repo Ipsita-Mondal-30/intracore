@@ -177,7 +177,7 @@ export async function listAttendance(ctx: AccessContext, query: unknown) {
     employee: q.mine === "true" ? { AND: [employeeVisibility(ctx), { userId: ctx.userId }] } : employeeVisibility(ctx),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.attendanceRecord.findMany({
         where,
         include: { employee: { select: { id: true, fullName: true, employeeNumber: true } }, _count: { select: { corrections: { where: { status: C.PENDING } } } } },
@@ -365,7 +365,7 @@ export async function listCorrections(ctx: AccessContext, query: unknown) {
     ...(all ? { attendance: { employee: companyScopeWhere(ctx) } } : { requestedById: ctx.userId }),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.attendanceCorrection.findMany({
         where,
         include: { attendance: { select: { id: true, date: true, status: true, employee: { select: { id: true, fullName: true, employeeNumber: true, userId: true } } } } },

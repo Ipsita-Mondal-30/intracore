@@ -58,7 +58,7 @@ export async function listSupplierEvaluations(ctx: AccessContext, query: unknown
   const q = listQuerySchema.extend({ vendorId: z.string().optional() }).parse(query);
   const where: Prisma.SupplierEvaluationWhereInput = { organizationId: ctx.organizationId, vendorId: q.vendorId };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.supplierEvaluation.findMany({
         where,
         include: { vendor: { select: { id: true, name: true, qualificationStatus: true } } },

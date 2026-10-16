@@ -195,7 +195,7 @@ export async function listExpenseClaims(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ status: z.nativeEnum(ExpenseClaimStatus).optional(), mine: z.enum(["true", "false"]).optional() }).parse(query);
   const where: Prisma.ExpenseClaimWhereInput = { ...visible(ctx), status: q.status, claimantId: q.mine === "true" ? ctx.userId : undefined };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.expenseClaim.findMany({ where, include: { claimant: { select: { id: true, name: true, email: true } } }, ...listArgs(q, ["createdAt", "totalAmount"], "createdAt") }),
       prisma.expenseClaim.count({ where }),
     ]),

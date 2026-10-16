@@ -33,7 +33,7 @@ export async function listAuditLogs(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.auditLog.findMany({
         where,
         include: { user: { select: { id: true, name: true, email: true } } },
