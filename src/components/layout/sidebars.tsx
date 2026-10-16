@@ -38,6 +38,8 @@ const modules = [
   { href: "/projects", label: "Projects", color: "bg-lime-500" },
   { href: "/service/tickets", label: "Service", color: "bg-cyan-500" },
   { href: "/manufacturing/work-orders", label: "Manufacturing", color: "bg-orange-600" },
+  { href: "/communication/messages", label: "Communication", color: "bg-teal-500" },
+  { href: "/automation/approvals", label: "Automation", color: "bg-indigo-500" },
   {
     href: "/settings/organization",
     label: "Organization",
@@ -152,12 +154,40 @@ const orgNavGroups: NavGroup[] = [
         label: "Integrations",
         icon: Plug,
       },
+      { href: "/settings/jobs", label: "Jobs & webhooks", icon: Radio },
     ],
   },
 ];
 
 /** Sidebar links for ERP sections, keyed by path prefix. */
 const sectionNav: { prefix: string; group: NavGroup }[] = [
+  {
+    prefix: "/communication",
+    group: {
+      title: "COMMUNICATION",
+      items: [
+        { href: "/communication/messages", label: "Message log", icon: Radio },
+        { href: "/communication/templates", label: "Templates", icon: Package },
+        { href: "/communication/consent", label: "Consent", icon: Shield },
+        { href: "/communication/campaigns", label: "Campaigns", icon: BarChart3 },
+        { href: "/communication/segments", label: "Segments", icon: Users },
+        { href: "/communication/feedback", label: "Feedback", icon: CheckCircle2 },
+        { href: "/communication/loyalty", label: "Loyalty", icon: Package },
+      ],
+    },
+  },
+  {
+    prefix: "/automation",
+    group: {
+      title: "AUTOMATION",
+      items: [
+        { href: "/automation/approvals", label: "Approvals", icon: CheckCircle2 },
+        { href: "/automation/workflows", label: "Workflows", icon: GitBranch },
+        { href: "/automation/reminders", label: "Reminders", icon: CalendarClock },
+        { href: "/automation/notifications", label: "Notification history", icon: Radio },
+      ],
+    },
+  },
   {
     prefix: "/crm",
     group: {

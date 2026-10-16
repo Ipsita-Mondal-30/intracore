@@ -143,6 +143,17 @@ export const PERMISSIONS: PermissionSeed[] = [
   ...perms("manufacturing", "view", "create", "release", "produce"),
   ...perms("quality", "view", "inspect", "manage"),
   ...perms("supplier", "evaluate"),
+
+  // Automation, communication, marketing, integrations
+  ...perms("workflow", "view", "manage"),
+  ...perms("approval", "view_all"),
+  ...perms("communication", "view", "send", "administer"),
+  ...perms("consent", "view", "manage"),
+  ...perms("campaign", "view", "manage", "approve"),
+  ...perms("feedback", "view", "create"),
+  ...perms("loyalty", "view", "manage"),
+  ...perms("signature", "view", "request"),
+  ...perms("job", "view", "replay"),
 ];
 
 /** Every staff role (not Viewer) can apply for leave, mark own attendance and claim expenses. */
@@ -265,6 +276,11 @@ export const SYSTEM_ROLE_TEMPLATES: SystemRoleTemplate[] = [
       "customer.view",
       "contact.view",
       "crm.report",
+      "campaign.view",
+      "campaign.manage",
+      "communication.view",
+      "communication.send",
+      ...codes(["consent", "feedback", "loyalty"]),
     ],
   },
   {

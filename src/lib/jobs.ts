@@ -1,4 +1,8 @@
 import { purgeExpiredIdempotencyKeys } from "@/lib/api/idempotency";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
+import { processQueue } from "@/lib/queue";
+import { sanitizeError } from "@/lib/sanitize";
 import { sendFollowUpReminderEmails } from "@/lib/email/follow-up-reminders";
 import { processDueTaskReminders } from "@/features/tasks/service";
 import { expireQuotations } from "@/features/sales/quotations";
@@ -22,16 +26,22 @@ export const JOBS: Record<string, () => Promise<unknown>> = {
   "ticket-escalation": () => escalateOverdueTickets(),
   "service-contract-reminders": () => sendContractAndWarrantyReminders(),
   "service-contract-expiry": () => expireServiceContracts(),
+  "background-queue": () => processQueue(),
 };
 
 export async function runJobs(names: string[]) {
   const results: Record<string, unknown> = {};
   for (const name of names) {
+    const run = await prisma.jobRun.create({ data: { name } });
     try {
-      results[name] = { ok: true, result: await JOBS[name]() };
+      const result = await JOBS[name]();
+      await prisma.jobRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", result: (result ?? Prisma.JsonNull) as Prisma.InputJsonValue, finishedAt: new Date() } });
+      results[name] = { ok: true, result };
     } catch (error) {
-      console.error(`[jobs] ${name} failed`, error);
-      results[name] = { ok: false, error: error instanceof Error ? error.message : String(error) };
+      const message = sanitizeError(error);
+      console.error(`[jobs] ${name} failed: ${message}`);
+      await prisma.jobRun.update({ where: { id: run.id }, data: { status: "FAILED", error: message, finishedAt: new Date() } });
+      results[name] = { ok: false, error: message };
     }
   }
   return results;

@@ -234,6 +234,22 @@ model Organization {
   inspections   Inspection[]
   nonConformances NonConformance[]
   supplierEvaluations SupplierEvaluation[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowRuns  WorkflowRun[]
+  workflowRunEvents WorkflowRunEvent[]
+  approvalRequests ApprovalRequest[]
+  reminders     Reminder[]
+  backgroundJobs BackgroundJob[]
+  messageTemplates MessageTemplate[]
+  contactConsents ContactConsent[]
+  communicationLogs CommunicationLog[]
+  webhookEvents WebhookEvent[]
+  segments      Segment[]
+  campaigns     Campaign[]
+  campaignRecipients CampaignRecipient[]
+  customerFeedback CustomerFeedback[]
+  loyaltyLedger LoyaltyLedgerEntry[]
+  signatureRequests SignatureRequest[]
 
   @@map("organizations")
 }
@@ -394,11 +410,14 @@ model Notification {
   body           String?
   data           Json?
   readAt         DateTime?
+  /// set by senders that must not notify twice for the same event
+  dedupeKey      String?
   createdAt      DateTime  @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, userId, dedupeKey])
   @@index([organizationId, userId, readAt])
   @@index([createdAt])
   @@map("notifications")
@@ -1001,8 +1020,13 @@ model Integration {
   provider       String
   status         IntegrationStatus @default(DISCONNECTED)
   credentialsRef String?
+  /// AES-GCM encrypted JSON object of provider secrets; never returned by the API
+  secrets        String?
   metadata       Json?
   lastSyncAt     DateTime?
+  lastCheckedAt  DateTime?
+  /// sanitized: secrets are stripped before storing
+  lastError      String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -1135,6 +1159,8 @@ model UserNotificationPreference {
   followUpReminders     Boolean @default(true)
   taskNotifications     Boolean @default(true)
   systemNotifications   Boolean @default(true)
+  approvalRequests      Boolean @default(true)
+  reminders             Boolean @default(true)
   browserNotifications  Boolean @default(false)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1355,12 +1381,23 @@ model Document {
   sizeBytes      Int
   storagePath    String    @unique
   uploadedById   String    @db.Uuid
+  /// versions of one logical document share versionGroupId (the first version's id)
+  versionGroupId String?
+  version        Int       @default(1)
+  supersededAt   DateTime?
+  /// sha256 of the uploaded bytes
+  checksum       String?
+  /// NONE | PENDING | SIGNED | DECLINED | EXPIRED | VOIDED — only a provider sets SIGNED
+  signatureStatus String   @default("NONE")
   createdAt      DateTime  @default(now())
   deletedAt      DateTime?
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy        User               @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  signatureRequests SignatureRequest[]
 
+  @@unique([organizationId, id])
+  @@unique([versionGroupId, version])
   @@index([organizationId, entityType, entityId])
   @@map("documents")
 }
@@ -1434,6 +1471,8 @@ model Customer {
   serviceContracts ServiceContract[]
   tickets        Ticket[]
   installationJobs InstallationJob[]
+  feedback       CustomerFeedback[]
+  loyaltyEntries LoyaltyLedgerEntry[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, code])
@@ -4552,4 +4591,460 @@ model SupplierEvaluation {
 
   @@index([vendorId, evaluatedOn])
   @@map("supplier_evaluations")
+}
+
+// ─── Phase 6: workflows, scheduling, communication, marketing, e-sign, integrations ─
+//
+// Nothing in a workflow, segment or template definition is ever executed as code: the
+// JSON is validated against allowlists in src/features/automation and interpreted.
+
+/// Event-driven workflow, triggered by an audit-log action such as "ticket.created".
+model WorkflowDefinition {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  /// EVENT (an audit action on triggerEntity)
+  triggerType    String   @default("EVENT")
+  triggerEntity  String
+  triggerAction  String
+  /// [{ field, op, value }] — every condition must hold
+  conditions     Json     @default("[]")
+  /// [{ type, params }] from the action allowlist
+  actions        Json     @default("[]")
+  /// [{ approverUserId | approverRoleCode, timeoutHours, escalateToUserId }]
+  approvalSteps  Json     @default("[]")
+  isEnabled      Boolean  @default(false)
+  /// audit_logs.createdAt high-water mark used by the dispatcher
+  cursorAt       DateTime @default(now())
+  createdById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  runs         WorkflowRun[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, id])
+  @@index([isEnabled, triggerEntity, triggerAction])
+  @@map("workflow_definitions")
+}
+
+model WorkflowRun {
+  id             String    @id @default(cuid())
+  organizationId String
+  workflowId     String
+  /// audit_logs.id that triggered the run (one run per workflow per event)
+  sourceEventId  String
+  entityType     String
+  entityId       String?
+  /// RUNNING | WAITING_APPROVAL | COMPLETED | SKIPPED | REJECTED | FAILED | CANCELLED
+  status         String    @default("RUNNING")
+  currentStep    Int       @default(0)
+  error          String?
+  snapshot       Json?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow     WorkflowDefinition @relation(fields: [organizationId, workflowId], references: [organizationId, id], onDelete: Cascade)
+  events       WorkflowRunEvent[]
+  approvals    ApprovalRequest[]
+
+  @@unique([workflowId, sourceEventId])
+  @@unique([organizationId, id])
+  @@index([organizationId, status])
+  @@map("workflow_runs")
+}
+
+model WorkflowRunEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  runId          String
+  /// CONDITIONS | ACTION | APPROVAL | ESCALATION | ERROR
+  kind           String
+  /// OK | FAILED | SKIPPED
+  status         String
+  message        String
+  data           Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run          WorkflowRun  @relation(fields: [organizationId, runId], references: [organizationId, id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+  @@map("workflow_run_events")
+}
+
+model ApprovalRequest {
+  id               String    @id @default(cuid())
+  organizationId   String
+  runId            String?
+  stepIndex        Int       @default(0)
+  entityType       String
+  entityId         String
+  title            String
+  approverUserId   String?   @db.Uuid
+  approverRoleCode String?
+  /// PENDING | APPROVED | REJECTED | ESCALATED | CANCELLED
+  status           String    @default("PENDING")
+  dueAt            DateTime?
+  escalateToUserId String?   @db.Uuid
+  escalatedAt      DateTime?
+  decidedById      String?   @db.Uuid
+  decidedAt        DateTime?
+  comment          String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run          WorkflowRun? @relation(fields: [organizationId, runId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, status, dueAt])
+  @@index([organizationId, approverUserId, status])
+  @@map("approval_requests")
+}
+
+/// One-off or recurring reminder delivered as an in-app notification.
+model Reminder {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String    @db.Uuid
+  title          String
+  body           String?
+  entityType     String?
+  entityId       String?
+  nextRunAt      DateTime
+  /// NONE | DAILY | WEEKLY | MONTHLY
+  recurrence     String    @default("NONE")
+  interval       Int       @default(1)
+  endsAt         DateTime?
+  lastFiredAt    DateTime?
+  fireCount      Int       @default(0)
+  isActive       Boolean   @default(true)
+  createdById    String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, nextRunAt])
+  @@index([organizationId, userId])
+  @@map("reminders")
+}
+
+/// Persistent background job with bounded retries; `key` makes enqueueing idempotent.
+model BackgroundJob {
+  id             String    @id @default(cuid())
+  organizationId String?
+  /// handler name registered in src/lib/queue.ts
+  type           String
+  key            String    @unique
+  payload        Json      @default("{}")
+  /// PENDING | RUNNING | SUCCEEDED | DEAD | CANCELLED
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  runAt          DateTime  @default(now())
+  lockedAt       DateTime?
+  /// sanitized: secrets are stripped before storing
+  lastError      String?
+  result         Json?
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAt])
+  @@index([organizationId, status])
+  @@map("background_jobs")
+}
+
+/// History of scheduled job-runner executions.
+model JobRun {
+  id         String    @id @default(cuid())
+  name       String
+  /// RUNNING | SUCCEEDED | FAILED
+  status     String    @default("RUNNING")
+  result     Json?
+  error      String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([name, startedAt])
+  @@map("job_runs")
+}
+
+model MessageTemplate {
+  id                   String            @id @default(cuid())
+  organizationId       String
+  channel              CommunicationType
+  name                 String
+  language             String            @default("en")
+  /// TRANSACTIONAL | MARKETING (consent purpose)
+  category             String            @default("TRANSACTIONAL")
+  subject              String?
+  /// text with {{variable}} placeholders; variables must be listed in `variables`
+  body                 String
+  variables            String[]          @default([])
+  /// provider-approved template name (WhatsApp Business)
+  providerTemplateName String?
+  isActive             Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]
+  logs         CommunicationLog[]
+
+  @@unique([organizationId, channel, name, language])
+  @@unique([organizationId, id])
+  @@map("message_templates")
+}
+
+/// Consent per channel, address and purpose. No record = no marketing consent.
+model ContactConsent {
+  id             String            @id @default(cuid())
+  organizationId String
+  channel        CommunicationType
+  /// lower-cased email or digits-only phone with country code
+  address        String
+  /// TRANSACTIONAL | MARKETING
+  purpose        String
+  /// OPTED_IN | OPTED_OUT
+  status         String
+  source         String?
+  recordedById   String?           @db.Uuid
+  recordedAt     DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, channel, address, purpose])
+  @@map("contact_consents")
+}
+
+model CommunicationLog {
+  id                String                 @id @default(cuid())
+  organizationId    String
+  channel           CommunicationType
+  direction         CommunicationDirection @default(OUTBOUND)
+  provider          String
+  templateId        String?
+  campaignId        String?
+  toAddress         String
+  fromAddress       String?
+  subject           String?
+  body              String
+  entityType        String?
+  entityId          String?
+  /// QUEUED | SENT | DELIVERED | READ | FAILED | BLOCKED | RECEIVED
+  status            String                 @default("QUEUED")
+  /// handled by the mock provider: never reported as real delivery
+  simulated         Boolean                @default(false)
+  providerMessageId String?
+  error             String?
+  attempts          Int                    @default(0)
+  idempotencyKey    String?
+  createdById       String?                @db.Uuid
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template     MessageTemplate? @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: NoAction)
+  campaign     Campaign?        @relation(fields: [organizationId, campaignId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, idempotencyKey])
+  @@unique([provider, providerMessageId])
+  @@unique([organizationId, id])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, campaignId])
+  @@map("communication_logs")
+}
+
+/// Inbound webhook deliveries, deduplicated by the provider's event id.
+model WebhookEvent {
+  id             String    @id @default(cuid())
+  organizationId String?
+  provider       String
+  externalId     String
+  /// RECEIVED | PROCESSED | IGNORED | FAILED
+  status         String    @default("RECEIVED")
+  payload        Json
+  error          String?
+  attempts       Int       @default(0)
+  receivedAt     DateTime  @default(now())
+  processedAt    DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([organizationId, status, receivedAt])
+  @@map("webhook_events")
+}
+
+/// Audience definition: an allowlisted filter over customers, contacts or leads.
+model Segment {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  /// CUSTOMER | CONTACT | LEAD
+  entity         String
+  /// [{ field, op, value }]
+  filters        Json     @default("[]")
+  createdById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, id])
+  @@map("segments")
+}
+
+model Campaign {
+  id            String            @id @default(cuid())
+  organizationId String
+  name          String
+  channel       CommunicationType
+  templateId    String
+  segmentId     String
+  /// TRANSACTIONAL | MARKETING (which consent is required)
+  purpose       String            @default("MARKETING")
+  /// DRAFT | PENDING_APPROVAL | APPROVED | SENDING | COMPLETED | CANCELLED
+  status        String            @default("DRAFT")
+  scheduledAt   DateTime?
+  submittedById String?           @db.Uuid
+  approvedById  String?           @db.Uuid
+  approvedAt    DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdById   String?           @db.Uuid
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template     MessageTemplate     @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: NoAction)
+  segment      Segment             @relation(fields: [organizationId, segmentId], references: [organizationId, id], onDelete: NoAction)
+  recipients   CampaignRecipient[]
+  logs         CommunicationLog[]
+  feedback     CustomerFeedback[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, status, scheduledAt])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  campaignId         String
+  address            String
+  name               String?
+  customerId         String?
+  contactId          String?
+  leadId             String?
+  /// PENDING | SKIPPED | QUEUED | SENT | DELIVERED | READ | FAILED
+  status             String   @default("PENDING")
+  /// NO_CONSENT | OPTED_OUT | INVALID_ADDRESS
+  skipReason         String?
+  communicationLogId String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign     Campaign     @relation(fields: [organizationId, campaignId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([campaignId, address])
+  @@index([campaignId, status])
+  @@map("campaign_recipients")
+}
+
+model CustomerFeedback {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String?
+  /// MANUAL | CAMPAIGN | TICKET | PORTAL
+  source         String   @default("MANUAL")
+  campaignId     String?
+  ticketId       String?
+  rating         Int
+  comment        String?
+  /// the customer agreed to publish this as a review
+  isPublic       Boolean  @default(false)
+  createdById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+  campaign     Campaign?    @relation(fields: [organizationId, campaignId], references: [organizationId, id], onDelete: NoAction)
+
+  @@index([organizationId, customerId])
+  @@index([organizationId, createdAt])
+  @@map("customer_feedback")
+}
+
+/// Append-only loyalty points ledger; balanceAfter is the customer's running balance.
+model LoyaltyLedgerEntry {
+  id             String    @id @default(cuid())
+  organizationId String
+  customerId     String
+  /// EARN | REDEEM | EXPIRE | ADJUST | REVERSAL
+  kind           String
+  points         Int
+  balanceAfter   Int
+  sourceType     String?
+  sourceId       String?
+  reason         String?
+  expiresAt      DateTime?
+  createdById    String?   @db.Uuid
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, sourceType, sourceId, kind])
+  @@index([organizationId, customerId, createdAt])
+  @@map("loyalty_ledger")
+}
+
+/// E-signature envelope sent through a provider adapter. Status changes only from the
+/// provider (verified webhook or status poll); an approval checkbox or uploaded signature
+/// image never makes a document SIGNED.
+model SignatureRequest {
+  id                String    @id @default(cuid())
+  organizationId    String
+  documentId        String
+  provider          String
+  providerRequestId String?
+  /// DRAFT | SENT | VIEWED | SIGNED | DECLINED | EXPIRED | VOIDED | FAILED
+  status            String    @default("DRAFT")
+  /// [{ name, email, order }]
+  signers           Json
+  /// true when the mock provider handled it: never legally signed
+  simulated         Boolean   @default(false)
+  signedDocumentId  String?
+  /// provider evidence (certificate / audit-trail reference)
+  evidence          Json?
+  error             String?
+  createdById       String?   @db.Uuid
+  sentAt            DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [organizationId, documentId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([provider, providerRequestId])
+  @@index([organizationId, status])
+  @@map("signature_requests")
 }

@@ -60,7 +60,11 @@ export async function createSystemNotification(input: {
     | "followUpReminders"
     | "taskNotifications"
     | "systemNotifications"
+    | "approvalRequests"
+    | "reminders"
   >;
+  /** Same key for the same recipient never notifies twice (retry/overlap safe). */
+  dedupeKey?: string;
 }) {
   const prefs = await getOrCreateNotificationPreferences(
     input.organizationId,
@@ -77,6 +81,10 @@ export async function createSystemNotification(input: {
       title: input.title,
       body: input.body,
       data: (input.data ?? {}) as Prisma.InputJsonValue,
+      dedupeKey: input.dedupeKey,
     },
+  }).catch((error: unknown) => {
+    if (input.dedupeKey && (error as { code?: string }).code === "P2002") return null;
+    throw error;
   });
 }
