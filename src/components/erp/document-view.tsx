@@ -117,6 +117,17 @@ export async function AuditTrail({ ctx, entity, entityId }: { ctx: AccessContext
       debit_note: "vendor_bill.view",
       expense_claim: "expense.view",
       journal_entry: "finance.view",
+      leave_request: "leave.view",
+      employee: "employee.view",
+      project_task: "project.view",
+      service_contract: "contract.view",
+      service_visit: "field.view",
+      installation_job: "field.view",
+      delivery_dispatch: "field.view",
+      work_order: "manufacturing.view",
+      bom: "manufacturing.view",
+      inspection_template: "quality.view",
+      nonconformance: "quality.view",
     } as Record<string, string>)[entity] ?? `${entity}.view`;
   if (!can(ctx, "audit.view") && !can(ctx, viewPermission)) return null;
   const logs = await prisma.auditLog.findMany({

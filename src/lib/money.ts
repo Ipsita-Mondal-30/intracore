@@ -21,16 +21,16 @@ export function zDecimal({ min = 0, max = 1e12, places = 2 }: { min?: number; ma
         const d = new Decimal(value);
         if (!d.isFinite()) throw new Error();
         if (d.lt(min) || d.gt(max)) {
-          ctx.addIssue({ code: "custom", message: `Must be between ${min} and ${max}` });
+          ctx.addIssue({ code: "custom", message: `Must be between ${min} and ${max}`, fatal: true });
           return z.NEVER;
         }
         if (d.decimalPlaces() > places) {
-          ctx.addIssue({ code: "custom", message: `At most ${places} decimal places` });
+          ctx.addIssue({ code: "custom", message: `At most ${places} decimal places`, fatal: true });
           return z.NEVER;
         }
         return d;
       } catch {
-        ctx.addIssue({ code: "custom", message: "Must be a number" });
+        ctx.addIssue({ code: "custom", message: "Must be a number", fatal: true });
         return z.NEVER;
       }
     });

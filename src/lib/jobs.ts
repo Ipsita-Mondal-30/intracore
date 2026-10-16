@@ -4,6 +4,8 @@ import { processDueTaskReminders } from "@/features/tasks/service";
 import { expireQuotations } from "@/features/sales/quotations";
 import { sendLowStockAlerts } from "@/features/inventory/alerts";
 import { remindOverdueInvoices } from "@/features/finance/receivables";
+import { escalateOverdueTickets } from "@/features/service/sla";
+import { expireServiceContracts, sendContractAndWarrantyReminders } from "@/features/service/contracts";
 
 /**
  * Background jobs. Each is idempotent and safe to run on any schedule; the runner is
@@ -17,6 +19,9 @@ export const JOBS: Record<string, () => Promise<unknown>> = {
   "quotation-expiry": () => expireQuotations(),
   "low-stock-alerts": () => sendLowStockAlerts(),
   "overdue-invoice-reminders": () => remindOverdueInvoices(),
+  "ticket-escalation": () => escalateOverdueTickets(),
+  "service-contract-reminders": () => sendContractAndWarrantyReminders(),
+  "service-contract-expiry": () => expireServiceContracts(),
 };
 
 export async function runJobs(names: string[]) {

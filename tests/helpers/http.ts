@@ -14,6 +14,7 @@ export async function signInAs(userId: string | null) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- route handlers declare differing param shapes
 type Handler = (req: Request, route: { params: Promise<any> }) => Promise<Response>;
 
 export async function call(
