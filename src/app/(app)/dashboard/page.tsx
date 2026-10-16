@@ -7,8 +7,8 @@ import { requirePermission } from "@/lib/tenant";
 import { prisma } from "@/lib/db/prisma";
 import {
   EMPTY_DASHBOARD_STATS,
-  getLeadDashboardCharts,
-  getLeadDashboardStats,
+  getCachedLeadDashboardCharts,
+  getCachedLeadDashboardStats,
 } from "@/features/leads/queries";
 import { DashboardCharts } from "@/features/leads/dashboard-charts";
 import { isAppError } from "@/lib/errors";
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
       prisma.organizationMember.count({
         where: { organizationId: tenant.organizationId, status: "ACTIVE" },
       }),
-      getLeadDashboardStats(tenant.organizationId, tenant.userId),
+      getCachedLeadDashboardStats(tenant.organizationId, tenant.userId),
       prisma.lead.findMany({
         where: { organizationId: tenant.organizationId, archivedAt: null },
         select: {
@@ -186,7 +186,7 @@ export default async function DashboardPage() {
 }
 
 async function DashboardChartsLoader({ organizationId }: { organizationId: string }) {
-  const charts = await getLeadDashboardCharts(organizationId);
+  const charts = await getCachedLeadDashboardCharts(organizationId);
   return (
     <DashboardCharts
       bySource={charts.bySource}
