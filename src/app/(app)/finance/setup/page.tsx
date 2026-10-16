@@ -63,7 +63,7 @@ export default async function FinanceSetupPage({ searchParams }: Props) {
               Accounting is not set up for this company yet. Setting it up creates the fiscal year containing the start date with monthly periods,
               and (optionally) a starter Indian chart of accounts with default mappings, a cash and a bank account, and expense categories.
             </p>
-            <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-warning">
+            <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
               Documents dated before the accounting start date will not create journals. They stay operational only — record opening balances with a manual journal instead.
             </p>
             {admin ? (

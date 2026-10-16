@@ -57,7 +57,7 @@ export default async function WorkOrderPage({ params }: { params: Promise<{ id: 
             <CardHeader><CardTitle>Materials</CardTitle></CardHeader>
             <CardContent>
               {short && (s === "DRAFT" || active) ? (
-                <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-warning">Some materials are short in {wo.warehouse.code}. Receive stock, then use “Reserve materials”.</p>
+                <p className="mb-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">Some materials are short in {wo.warehouse.code}. Receive stock, then use “Reserve materials”.</p>
               ) : null}
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-sm">

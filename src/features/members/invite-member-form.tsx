@@ -38,7 +38,7 @@ export function InviteMemberForm({
           name="roleId"
           required
           defaultValue=""
-          className="flex h-10 w-full rounded-xl border border-[var(--ic-border)] bg-white px-3 text-sm"
+          className="flex h-10 w-full rounded-xl border border-border-strong bg-input px-3 text-sm text-foreground"
         >
           <option value="" disabled>
             Select role

@@ -1,19 +1,19 @@
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
-  NEW: "bg-sky-50 text-sky-700",
-  OPEN: "bg-indigo-50 text-indigo-700",
-  IN_PROGRESS: "bg-amber-50 text-amber-700",
-  RESOLVED: "bg-emerald-50 text-emerald-700",
-  CLOSED: "bg-slate-100 text-slate-600",
-  QUALIFIED: "bg-emerald-50 text-emerald-700",
-  UNQUALIFIED: "bg-rose-50 text-rose-700",
-  CONVERTED: "bg-blue-50 text-blue-700",
-  LOST: "bg-slate-100 text-slate-600",
-  Interested: "bg-emerald-50 text-emerald-700",
-  Confirmed: "bg-blue-50 text-blue-700",
-  "Not-Interested": "bg-rose-50 text-rose-700",
-  Potential: "bg-amber-50 text-amber-700",
+  NEW: "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+  OPEN: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+  IN_PROGRESS: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  RESOLVED: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  CLOSED: "bg-neutral-soft text-muted",
+  QUALIFIED: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  UNQUALIFIED: "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  CONVERTED: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  LOST: "bg-neutral-soft text-muted",
+  Interested: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  Confirmed: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  "Not-Interested": "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  Potential: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
 };
 
 export function leadStatusLabel(status: string) {
@@ -45,7 +45,7 @@ export function StatusChip({
   className?: string;
 }) {
   const text = label ?? leadStatusLabel(status);
-  const style = STATUS_STYLES[text] ?? STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700";
+  const style = STATUS_STYLES[text] ?? STATUS_STYLES[status] ?? "bg-neutral-soft text-neutral-text";
   return (
     <span
       className={cn(

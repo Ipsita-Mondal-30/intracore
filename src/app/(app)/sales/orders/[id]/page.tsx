@@ -110,7 +110,7 @@ export default async function SalesOrderPage({ params }: { params: Promise<{ id:
             <CardHeader><CardTitle>Details</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {order.status === "CANCELLED" ? (
-                <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">
+                <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">
                   Cancelled {formatDate(order.cancelledAt)}{order.cancelReason ? `: “${order.cancelReason}”` : ""}
                 </p>
               ) : null}
@@ -130,7 +130,7 @@ export default async function SalesOrderPage({ params }: { params: Promise<{ id:
                   <span className="text-muted">Delivered {formatQty(delivered)} of {formatQty(ordered)}</span>
                   <span className="font-medium">{percent}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-2 overflow-hidden rounded-full bg-skeleton">
                   <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
                 </div>
               </div>

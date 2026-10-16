@@ -109,7 +109,7 @@ export function ReceiveForm({ purchaseOrderId, lines }: { purchaseOrderId: strin
         <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Delivery note / reference (optional)" className="max-w-xs" maxLength={120} />
         <Button type="submit" size="sm" disabled={pending}>{pending ? "Receiving…" : "Receive goods"}</Button>
       </div>
-      {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">{error}</p> : null}
     </form>
   );
 }
