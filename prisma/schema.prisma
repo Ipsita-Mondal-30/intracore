@@ -42,6 +42,9 @@ model User {
   conversationParticipants ConversationParticipant[]
   sentMessages        Message[]                 @relation("MessageSender")
   notificationPreferences UserNotificationPreference[]
+  assignedWorkTasks   Task[]                    @relation("TaskAssignee")
+  createdWorkTasks    Task[]                    @relation("TaskCreator")
+  uploadedDocuments   Document[]
 
   @@map("users")
 }
@@ -69,6 +72,8 @@ model Organization {
   timezone     String   @default("UTC")
   contactEmail String?
   contactPhone String?
+  /// CRM-wide settings (duplicate matching rules, ...); typed by src/lib/settings.ts
+  settings     Json     @default("{}")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -102,6 +107,10 @@ model Organization {
   inquiries      Inquiry[]
   conversations Conversation[]
   notificationPreferences UserNotificationPreference[]
+  companies     Company[]
+  tasks         Task[]
+  documents     Document[]
+  idempotencyKeys IdempotencyKey[]
 
   @@map("organizations")
 }
@@ -118,8 +127,10 @@ model OrganizationMember {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role         Role         @relation(fields: [roleId], references: [id])
+  scopes       MemberScope[]
 
   @@unique([organizationId, userId])
+  @@unique([organizationId, id])
   @@index([userId])
   @@index([organizationId])
   @@index([roleId])
@@ -229,6 +240,7 @@ model TeamMember {
 model AuditLog {
   id             String   @id @default(cuid())
   organizationId String?
+  companyId      String?
   userId         String?  @db.Uuid
   action         String
   entity         String
@@ -246,6 +258,7 @@ model AuditLog {
   @@index([userId])
   @@index([entity, entityId])
   @@index([action])
+  @@index([organizationId, companyId, createdAt])
   @@map("audit_logs")
 }
 
@@ -1000,4 +1013,179 @@ model UserNotificationPreference {
 
   @@unique([organizationId, userId])
   @@map("user_notification_preferences")
+}
+
+// ─── ERP foundation: companies, branches, scopes ─────────────────────────────
+//
+// Organization is the tenant. A tenant owns one or more Companies (legal entities,
+// each with its own PAN/GSTIN and document numbering). Branches belong to a company
+// and may carry their own GSTIN (multi-GSTIN). Company-scoped tables reference
+// (organizationId, companyId) -> companies(organizationId, id) so the database
+// itself rejects cross-tenant references.
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model Company {
+  id             String       @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  legalName      String?
+  pan            String?
+  gstin          String?
+  /// Two-digit GST state code of the registered office, e.g. "29" (Karnataka)
+  stateCode      String?
+  baseCurrency   String       @default("INR")
+  address        String?
+  /// Typed by src/lib/settings.ts (approval thresholds, negative stock policy, ...)
+  settings       Json         @default("{}")
+  isDefault      Boolean      @default(false)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branches        Branch[]
+  memberScopes    MemberScope[]
+  numberSequences NumberSequence[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, id])
+  @@unique([organizationId, gstin])
+  @@map("companies")
+}
+
+model Branch {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String
+  code           String
+  name           String
+  gstin          String?
+  stateCode      String?
+  address        String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company      Company       @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: Cascade)
+  memberScopes MemberScope[]
+
+  @@unique([companyId, code])
+  @@unique([organizationId, id])
+  @@unique([organizationId, companyId, id])
+  @@index([organizationId, companyId])
+  @@map("branches")
+}
+
+/// Grants a member access to a company (branchId null = every branch of it).
+/// Deny by default: a member without a scope row cannot touch company data.
+model MemberScope {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  companyId      String
+  branchId       String?
+  createdAt      DateTime @default(now())
+
+  member  OrganizationMember @relation(fields: [organizationId, memberId], references: [organizationId, id], onDelete: Cascade)
+  company Company            @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: Cascade)
+  branch  Branch?            @relation(fields: [organizationId, companyId, branchId], references: [organizationId, companyId, id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([organizationId, companyId])
+  @@map("member_scopes")
+}
+
+/// Gapless per-company document numbering, incremented inside the creating transaction.
+model NumberSequence {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String
+  documentType   String
+  prefix         String
+  nextNumber     Int      @default(1)
+  padding        Int      @default(5)
+  updatedAt      DateTime @updatedAt
+
+  company Company @relation(fields: [organizationId, companyId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([companyId, documentType])
+  @@map("number_sequences")
+}
+
+/// Stored responses for retried requests that carry an Idempotency-Key header.
+model IdempotencyKey {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String    @db.Uuid
+  key            String
+  requestHash    String
+  responseStatus Int?
+  responseBody   Json?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, key])
+  @@index([createdAt])
+  @@map("idempotency_keys")
+}
+
+/// Generic to-do / reminder attached to any record via entityType + entityId.
+/// Lead tasks and follow-ups keep using LeadTask / LeadFollowUp.
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  companyId      String?
+  title          String
+  description    String?
+  entityType     String?
+  entityId       String?
+  assignedUserId String?      @db.Uuid
+  createdById    String       @db.Uuid
+  dueAt          DateTime?
+  remindAt       DateTime?
+  remindedAt     DateTime?
+  priority       LeadPriority @default(MEDIUM)
+  status         TaskStatus   @default(PENDING)
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser User?        @relation("TaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, assignedUserId, status, dueAt])
+  @@index([organizationId, entityType, entityId])
+  @@index([status, remindAt, remindedAt])
+  @@map("tasks")
+}
+
+/// Metadata for a file in private storage, attached to any record.
+model Document {
+  id             String    @id @default(cuid())
+  organizationId String
+  companyId      String?
+  entityType     String
+  entityId       String
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  storagePath    String    @unique
+  uploadedById   String    @db.Uuid
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, entityType, entityId])
+  @@map("documents")
 }

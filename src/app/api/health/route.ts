@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { getMissingEnvVars, hasSupabasePublicEnv } from "@/lib/config/env";
 import { isEmailConfigured } from "@/lib/email/client";
 import { prisma } from "@/lib/db/prisma";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export async function GET(request: Request) {
   const missing = getMissingEnvVars();
   const url = new URL(request.url);
-  const checkDb = url.searchParams.get("db") === "1";
+  // The DB probe returns raw error messages and column names: operators only.
+  const checkDb =
+    url.searchParams.get("db") === "1" &&
+    isCronAuthorized(request.headers.get("authorization"));
 
   const payload: Record<string, unknown> = {
     status: missing.length === 0 ? "ok" : "misconfigured",

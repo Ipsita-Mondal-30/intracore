@@ -12,6 +12,7 @@ import {
   inviteMemberSchema,
 } from "@/lib/validations/auth";
 import { isAppError } from "@/lib/errors";
+import { systemRolePermissions } from "@/lib/permissions/catalog";
 import type { ActionResult } from "@/features/auth/types";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendEmail } from "@/lib/email/send";
@@ -51,9 +52,23 @@ export async function inviteMemberAction(
         id: parsed.data.roleId,
         organizationId: tenant.organizationId,
       },
+      include: { permissions: { include: { permission: { select: { code: true } } } } },
     });
     if (!role) {
       return { ok: false, error: "Invalid role for this organization" };
+    }
+    // Nobody can hand out more access than they hold themselves.
+    if (!tenant.isOwner) {
+      const granted = [
+        ...role.permissions.map((rp) => rp.permission.code),
+        ...(role.isSystem ? systemRolePermissions(role.code) : []),
+      ];
+      if (role.code === "owner" || granted.some((code) => !tenant.permissions.has(code))) {
+        return {
+          ok: false,
+          error: "You cannot invite someone to a role with more access than your own",
+        };
+      }
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -253,7 +268,7 @@ export async function acceptInvitationAction(
     }
 
     await prisma.$transaction(async (tx) => {
-      await tx.organizationMember.create({
+      const member = await tx.organizationMember.create({
         data: {
           organizationId: invitation.organizationId,
           userId: userId!,
@@ -262,6 +277,21 @@ export async function acceptInvitationAction(
           status: MemberStatus.ACTIVE,
         },
       });
+
+      // New members start with access to the default company; admins adjust scopes later.
+      const defaultCompany = await tx.company.findFirst({
+        where: { organizationId: invitation.organizationId, isDefault: true },
+        select: { id: true },
+      });
+      if (defaultCompany) {
+        await tx.memberScope.create({
+          data: {
+            organizationId: invitation.organizationId,
+            memberId: member.id,
+            companyId: defaultCompany.id,
+          },
+        });
+      }
 
       await tx.user.update({
         where: { id: userId! },

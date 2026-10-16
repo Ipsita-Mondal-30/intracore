@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { FollowUpType, LeadPriority, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { requirePermission } from "@/lib/tenant";
+import { requirePermission, type TenantContext } from "@/lib/tenant";
+import { leadVisibilityWhere } from "@/features/leads/scope";
+import { assertActiveMember } from "@/lib/tenant/refs";
 import { isAppError } from "@/lib/errors";
 import type { ActionResult } from "@/features/auth/types";
 import {
@@ -19,9 +21,9 @@ import {
 } from "@/lib/email/crm-notify";
 import { syncLeadNextFollowUpAt } from "@/lib/leads/follow-up-sync";
 
-async function requireLead(organizationId: string, leadId: string) {
+async function requireLead(tenant: TenantContext, leadId: string) {
   return prisma.lead.findFirst({
-    where: { id: leadId, organizationId },
+    where: { id: leadId, ...leadVisibilityWhere(tenant) },
   });
 }
 
@@ -43,7 +45,7 @@ export async function addNoteAction(
     if (!parsed.success) {
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
     }
-    const lead = await requireLead(tenant.organizationId, leadId);
+    const lead = await requireLead(tenant, leadId);
     if (!lead) return { ok: false, error: "Lead not found" };
 
     await prisma.leadNote.create({
@@ -81,7 +83,7 @@ export async function updateNoteAction(
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
     }
     const note = await prisma.leadNote.findFirst({
-      where: { id: noteId, organizationId: tenant.organizationId },
+      where: { id: noteId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
     });
     if (!note) return { ok: false, error: "Note not found" };
     await prisma.leadNote.update({
@@ -101,7 +103,7 @@ export async function deleteNoteAction(formData: FormData): Promise<ActionResult
     const tenant = await requirePermission("lead.edit");
     const noteId = String(formData.get("noteId") ?? "");
     const note = await prisma.leadNote.findFirst({
-      where: { id: noteId, organizationId: tenant.organizationId },
+      where: { id: noteId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
     });
     if (!note) return { ok: false, error: "Note not found" };
     await prisma.leadNote.delete({ where: { id: noteId } });
@@ -130,9 +132,10 @@ export async function createTaskAction(
     if (!parsed.success) {
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
     }
-    const lead = await requireLead(tenant.organizationId, leadId);
+    const lead = await requireLead(tenant, leadId);
     if (!lead) return { ok: false, error: "Lead not found" };
 
+    if (parsed.data.assignedUserId) await assertActiveMember(tenant.organizationId, parsed.data.assignedUserId);
     await prisma.leadTask.create({
       data: {
         organizationId: tenant.organizationId,
@@ -178,9 +181,10 @@ export async function updateTaskAction(
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
     }
     const task = await prisma.leadTask.findFirst({
-      where: { id: taskId, organizationId: tenant.organizationId },
+      where: { id: taskId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
     });
     if (!task) return { ok: false, error: "Task not found" };
+    if (parsed.data.assignedUserId) await assertActiveMember(tenant.organizationId, parsed.data.assignedUserId);
     await prisma.leadTask.update({
       where: { id: taskId },
       data: {
@@ -205,7 +209,7 @@ export async function deleteTaskAction(formData: FormData): Promise<void> {
     const tenant = await requirePermission("lead.edit");
     const taskId = String(formData.get("taskId") ?? "");
     const task = await prisma.leadTask.findFirst({
-      where: { id: taskId, organizationId: tenant.organizationId },
+      where: { id: taskId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
     });
     if (!task) return;
     await prisma.leadTask.delete({ where: { id: taskId } });
@@ -219,7 +223,7 @@ export async function completeTaskAction(formData: FormData): Promise<void> {
   const tenant = await requirePermission("lead.edit");
   const taskId = String(formData.get("taskId") ?? "");
   const task = await prisma.leadTask.findFirst({
-    where: { id: taskId, organizationId: tenant.organizationId },
+    where: { id: taskId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
   });
   if (!task) return;
   await prisma.leadTask.update({
@@ -247,10 +251,11 @@ export async function createFollowUpAction(
     if (!parsed.success) {
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
     }
-    const lead = await requireLead(tenant.organizationId, leadId);
+    const lead = await requireLead(tenant, leadId);
     if (!lead) return { ok: false, error: "Lead not found" };
 
     const dueAt = new Date(parsed.data.dueAt);
+    if (parsed.data.assignedUserId) await assertActiveMember(tenant.organizationId, parsed.data.assignedUserId);
     const assignedUserId = parsed.data.assignedUserId || tenant.userId;
     const followUp = await prisma.leadFollowUp.create({
       data: {
@@ -313,10 +318,11 @@ export async function updateFollowUpAction(
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
     }
     const item = await prisma.leadFollowUp.findFirst({
-      where: { id: followUpId, organizationId: tenant.organizationId },
+      where: { id: followUpId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
     });
     if (!item) return { ok: false, error: "Follow-up not found" };
     const dueAt = new Date(parsed.data.dueAt);
+    if (parsed.data.assignedUserId) await assertActiveMember(tenant.organizationId, parsed.data.assignedUserId);
     await prisma.leadFollowUp.update({
       where: { id: followUpId },
       data: {
@@ -347,7 +353,7 @@ export async function cancelFollowUpAction(formData: FormData): Promise<void> {
     const tenant = await requirePermission("lead.edit");
     const followUpId = String(formData.get("followUpId") ?? "");
     const item = await prisma.leadFollowUp.findFirst({
-      where: { id: followUpId, organizationId: tenant.organizationId },
+      where: { id: followUpId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
     });
     if (!item) return;
     await prisma.leadFollowUp.update({
@@ -367,7 +373,7 @@ export async function completeFollowUpAction(
   const tenant = await requirePermission("lead.edit");
   const followUpId = String(formData.get("followUpId") ?? "");
   const item = await prisma.leadFollowUp.findFirst({
-    where: { id: followUpId, organizationId: tenant.organizationId },
+    where: { id: followUpId, organizationId: tenant.organizationId, lead: leadVisibilityWhere(tenant) },
   });
   if (!item) return;
 
@@ -418,7 +424,7 @@ export async function logActivityAction(
     if (!parsed.success) {
       return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
     }
-    const lead = await requireLead(tenant.organizationId, leadId);
+    const lead = await requireLead(tenant, leadId);
     if (!lead) return { ok: false, error: "Lead not found" };
 
     const kind = parsed.data.kind;
