@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LayoutGrid, MessageSquare, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationCenter, type NotificationItem } from "@/features/notifications/notification-center";
 
 export function AppHeader({
@@ -33,6 +34,7 @@ export function AppHeader({
       </div>
 
       <div className="flex items-center gap-2 self-end sm:self-auto">
+        <ThemeToggle />
         <Button
           type="button"
           size="icon-sm"
