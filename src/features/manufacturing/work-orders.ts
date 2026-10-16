@@ -306,7 +306,7 @@ export async function listWorkOrders(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.workOrder.findMany({
         where,
         include: { product: { select: { id: true, sku: true, name: true } }, warehouse: { select: { code: true } }, bom: { select: { version: true } } },

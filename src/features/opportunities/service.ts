@@ -60,7 +60,7 @@ export async function listOpportunities(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["name", "description"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.opportunity.findMany({
         where,
         include,

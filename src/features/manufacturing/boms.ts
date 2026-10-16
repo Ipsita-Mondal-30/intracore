@@ -238,7 +238,7 @@ export async function listBoms(ctx: AccessContext, query: unknown) {
     ...(q.q ? { product: searchWhere(q.q, ["name", "sku"]) } : {}),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.bom.findMany({
         where,
         include: { product: { select: { id: true, sku: true, name: true } }, _count: { select: { lines: true, workOrders: true } } },

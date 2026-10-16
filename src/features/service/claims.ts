@@ -201,7 +201,7 @@ export async function listClaims(ctx: AccessContext, query: unknown) {
     .parse(query);
   const where: Prisma.ServiceClaimWhereInput = { organizationId: ctx.organizationId, asset: assetScope(ctx), status: q.status, assetId: q.assetId, contractId: q.contractId };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.serviceClaim.findMany({ where, include, ...listArgs(q, ["createdAt"], "createdAt") }),
       prisma.serviceClaim.count({ where }),
     ]),

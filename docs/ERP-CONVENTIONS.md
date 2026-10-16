@@ -68,6 +68,19 @@ export async function doThing(ctx: AccessContext, id: string, input: unknown) {
 - **Jobs:** add to `JOBS` in `src/lib/jobs.ts`. Jobs must be idempotent: claim rows with a
   conditional `updateMany` before acting, so overlapping runs never duplicate work.
 
+## Performance (the database is a network round trip away)
+
+- **Lists:** `paginate(q, () => Promise.all([findMany, count]))`, never `prisma.$transaction([...])` for
+  reads (a batch transaction is BEGIN + each query + COMMIT, one after another).
+- **Includes** are loaded with SQL joins (`relationJoins`), so one `findFirst({ include })` is one query.
+  Independent reads go in one `Promise.all`.
+- **Access data** (user row, membership, permissions, scopes) is served from the shared cache in
+  `src/lib/cache/request-cache.ts`. Any write that changes memberships, roles, role permissions,
+  member scopes or companies must call `invalidateAccess(orgId)` after commit (wrap the transaction
+  in `afterCommit(...)`); writes to a user row call `invalidateUser(userId)`.
+- **Client:** browser-side reads use `useApiQuery` (TanStack Query, stale-while-revalidate);
+  `ApiForm` / `ActionButton` / `useApiMutation` invalidate it and refresh the page after a write.
+
 ## API routes
 
 ```ts

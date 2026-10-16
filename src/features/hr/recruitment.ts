@@ -109,7 +109,7 @@ export async function listJobOpenings(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["title", "location"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.jobOpening.findMany({ where, include: { department: { select: { name: true } }, _count: { select: { applications: true } } }, ...listArgs(q, ["createdAt", "title", "status"], "createdAt") }),
       prisma.jobOpening.count({ where }),
     ]),
@@ -175,7 +175,7 @@ export async function listCandidates(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.parse(query);
   const where: Prisma.CandidateWhereInput = { organizationId: ctx.organizationId, ...searchWhere(q.q, ["fullName", "email", "phone"]) };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.candidate.findMany({ where, include: { _count: { select: { applications: true } } }, ...listArgs(q, ["createdAt", "fullName"], "createdAt") }),
       prisma.candidate.count({ where }),
     ]),
@@ -273,7 +273,7 @@ export async function listApplications(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ jobOpeningId: z.string().optional(), candidateId: z.string().optional(), stage: z.nativeEnum(A).optional() }).parse(query);
   const where: Prisma.ApplicationWhereInput = { ...applicationWhere(ctx), jobOpeningId: q.jobOpeningId, candidateId: q.candidateId, stage: q.stage };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.application.findMany({ where, include: { candidate: true, jobOpening: { select: { id: true, title: true } } }, ...listArgs(q, ["createdAt", "stageChangedAt"], "createdAt") }),
       prisma.application.count({ where }),
     ]),
@@ -337,7 +337,7 @@ export async function listInterviews(ctx: AccessContext, query: unknown) {
     AND: [interviewWhere(ctx), { applicationId: q.applicationId }, q.mine === "true" ? { interviewerIds: { contains: ctx.userId } } : {}],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.interview.findMany({ where, include: interviewInclude, ...listArgs(q, ["scheduledAt", "createdAt"], "scheduledAt") }),
       prisma.interview.count({ where }),
     ]),

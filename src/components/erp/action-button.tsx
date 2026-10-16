@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useInvalidateAfterWrite } from "@/lib/query/hooks";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function ActionButton({
   method?: "POST" | "PATCH" | "PUT" | "DELETE";
 }) {
   const router = useRouter();
+  const invalidate = useInvalidateAfterWrite();
   const [pending, setPending] = useState(false);
 
   async function run() {
@@ -47,8 +49,8 @@ export function ActionButton({
       const data = await apiFetch<Record<string, unknown> | null>(path, { method, body: payload });
       toast.success(`${label}: done`);
       const id = (data?.id as string) ?? ((data?.salesOrder as { id?: string })?.id ?? "");
+      invalidate();
       if (redirectTo) router.push(redirectTo.replace(":id", id));
-      else router.refresh();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : `${label} failed`);
     } finally {

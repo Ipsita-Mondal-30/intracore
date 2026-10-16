@@ -1,6 +1,7 @@
 import { Plus_Jakarta_Sans } from "next/font/google";
 import type { Metadata } from "next";
 import "./globals.css";
+import { QueryProvider } from "@/lib/query/provider";
 
 const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -20,7 +21,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${sans.variable} font-sans`}>{children}</body>
+      <body className={`${sans.variable} font-sans`}>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

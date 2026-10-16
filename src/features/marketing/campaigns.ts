@@ -205,7 +205,7 @@ export async function listCampaigns(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ status: z.enum(CAMPAIGN_STATUSES).optional(), channel: z.nativeEnum(CommunicationType).optional() }).parse(query);
   const where: Prisma.CampaignWhereInput = { organizationId: ctx.organizationId, status: q.status, channel: q.channel, ...searchWhere(q.q, ["name"]) };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.campaign.findMany({ where, include: { ...include, _count: { select: { recipients: true } } }, ...listArgs(q, ["createdAt", "name", "scheduledAt"], "createdAt") }),
       prisma.campaign.count({ where }),
     ]),
@@ -225,7 +225,7 @@ export async function listCampaignRecipients(ctx: AccessContext, id: string, que
   if (!(await prisma.campaign.count({ where: { id, organizationId: ctx.organizationId } }))) throw new AppError("NOT_FOUND", "Campaign not found", 404);
   const where: Prisma.CampaignRecipientWhereInput = { campaignId: id, status: q.status, ...searchWhere(q.q, ["address", "name"]) };
   const page = await paginate(q, () =>
-    prisma.$transaction([prisma.campaignRecipient.findMany({ where, ...listArgs(q, ["createdAt", "address"], "createdAt") }), prisma.campaignRecipient.count({ where })]),
+    Promise.all([prisma.campaignRecipient.findMany({ where, ...listArgs(q, ["createdAt", "address"], "createdAt") }), prisma.campaignRecipient.count({ where })]),
   );
   // Delivery state lives on the communication log, which the delivery worker updates.
   const logs = await prisma.communicationLog.findMany({

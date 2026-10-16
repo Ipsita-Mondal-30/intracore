@@ -165,7 +165,7 @@ export async function listAssets(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["tag", "name", "serialNumber", "location"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.asset.findMany({ where, include: { customer: { select: { id: true, name: true } }, product: { select: { id: true, sku: true, name: true } } }, ...listArgs(q, ["createdAt", "tag", "name"], "createdAt") }),
       prisma.asset.count({ where }),
     ]),
@@ -227,7 +227,7 @@ export async function listWarranties(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ assetId: z.string().optional(), expiringBefore: date.optional() }).parse(query);
   const where: Prisma.WarrantyWhereInput = { organizationId: ctx.organizationId, asset: assetScope(ctx), assetId: q.assetId, endDate: q.expiringBefore ? { lte: q.expiringBefore } : undefined };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.warranty.findMany({ where, include: { asset: { select: { id: true, tag: true, name: true, serialNumber: true } } }, ...listArgs(q, ["createdAt", "endDate", "startDate"], "endDate") }),
       prisma.warranty.count({ where }),
     ]),

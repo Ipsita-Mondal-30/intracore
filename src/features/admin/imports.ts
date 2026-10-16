@@ -343,7 +343,7 @@ export async function listImportJobs(ctx: AccessContext, query: unknown) {
     entity: q.entity && IMPORT_ENTITIES.includes(q.entity) ? q.entity : { in: IMPORT_ENTITIES },
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.importJob.findMany({
         where,
         include: { createdBy: { select: { id: true, name: true, email: true } } },

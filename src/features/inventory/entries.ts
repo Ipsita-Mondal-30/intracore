@@ -677,7 +677,7 @@ export async function listStockEntries(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.stockEntry.findMany({
         where,
         include: {

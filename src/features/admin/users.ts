@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { afterCommit, invalidateAccess } from "@/lib/cache/request-cache";
 import { MemberStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { AppError } from "@/lib/errors";
@@ -32,7 +33,7 @@ export async function listMembers(ctx: AccessContext, query: unknown) {
       : {}),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.organizationMember.findMany({
         where,
         include: {
@@ -90,7 +91,7 @@ export async function changeMemberRole(ctx: AccessContext, memberId: string, inp
   assertCan(ctx, "member.change_role");
   const { roleId } = z.object({ roleId: z.string().min(1) }).parse(input);
 
-  return prisma.$transaction(async (tx) => {
+  return afterCommit(prisma.$transaction(async (tx) => {
     const member = await lockMember(tx, ctx, memberId);
     const role = await loadRole(tx, ctx, roleId).catch(() => {
       throw new AppError("INVALID_REFERENCE", "Role does not belong to this organization", 422);
@@ -110,13 +111,13 @@ export async function changeMemberRole(ctx: AccessContext, memberId: string, inp
       next: { roleId: role.id, roleCode: role.code, isOwner },
     });
     return updated;
-  });
+  }), () => invalidateAccess(ctx.organizationId));
 }
 
 /** Suspend (DISABLED) or reactivate a member. Suspended members fail `buildTenantContext`. */
 export async function setMemberStatus(ctx: AccessContext, memberId: string, status: MemberStatus) {
   assertCan(ctx, "member.remove");
-  return prisma.$transaction(async (tx) => {
+  return afterCommit(prisma.$transaction(async (tx) => {
     const member = await lockMember(tx, ctx, memberId);
     if (member.status === status) return member;
     if (status === MemberStatus.DISABLED && member.isOwner) await assertAnotherOwner(tx, ctx, memberId);
@@ -129,5 +130,5 @@ export async function setMemberStatus(ctx: AccessContext, memberId: string, stat
       next: { status },
     });
     return updated;
-  });
+  }), () => invalidateAccess(ctx.organizationId));
 }

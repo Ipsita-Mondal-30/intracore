@@ -58,7 +58,7 @@ export async function listProducts(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["name", "sku", "barcode", "hsnCode"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.product.findMany({ where, include: productInclude, ...listArgs(q, ["createdAt", "name", "sku", "salesPrice"], "name") }),
       prisma.product.count({ where }),
     ]),

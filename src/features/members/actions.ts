@@ -1,5 +1,6 @@
 "use server";
 
+import { invalidateAccess, invalidateUser } from "@/lib/cache/request-cache";
 import { createHash, randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { InvitationStatus, MemberStatus } from "@prisma/client";
@@ -314,6 +315,8 @@ export async function acceptInvitationAction(
       });
     });
 
+    invalidateUser(userId!);
+    invalidateAccess(invitation.organizationId);
     revalidatePath("/", "layout");
     return { ok: true };
   } catch (error) {

@@ -169,7 +169,7 @@ export async function listJournals(ctx: AccessContext, query: unknown) {
   };
   if (q.companyId && !ctx.companies.has(q.companyId)) throw new AppError("NOT_FOUND", "Company not found", 404);
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.journalEntry.findMany({ where, ...listArgs(q, ["date", "createdAt", "totalDebit"], "date") }),
       prisma.journalEntry.count({ where }),
     ]),

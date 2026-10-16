@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { StatusBadge } from "@/components/erp/status-badge";
 import { formatDateTime } from "@/components/erp/format";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api/client";
+import { useApiQuery } from "@/lib/query/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -110,21 +111,10 @@ type Versions = { items: VersionRow[]; can: { createVersion: boolean; requestSig
  * from the provider; there is no control here (or in the API) that marks a document signed.
  */
 function DocumentDetails({ id }: { id: string }) {
-  const [data, setData] = useState<Versions | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
-  const load = () => setTick((t) => t + 1);
-
-  useEffect(() => {
-    let live = true;
-    apiFetch<Versions>(`/documents/${id}/versions`)
-      .then((d) => live && setData(d))
-      .catch((e) => live && setError(e instanceof ApiError ? e.message : "Could not load details"));
-    return () => {
-      live = false;
-    };
-  }, [id, tick]);
-  if (error) return <p className="mt-1 text-2xs text-danger">{error}</p>;
+  // Cached per document; reopening the panel shows it instantly while it revalidates.
+  const { data, error, refetch } = useApiQuery<Versions>(`/documents/${id}/versions`);
+  const load = () => void refetch();
+  if (error) return <p className="mt-1 text-2xs text-danger">{error instanceof ApiError ? error.message : "Could not load details"}</p>;
   if (!data) return <p className="mt-1 text-2xs text-subtle">Loading…</p>;
 
   const latest = data.items[0];

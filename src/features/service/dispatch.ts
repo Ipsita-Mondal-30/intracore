@@ -96,7 +96,7 @@ export async function listDispatches(ctx: AccessContext, query: unknown) {
   const q = listQuerySchema.extend({ status: z.enum(["DISPATCHED", "IN_TRANSIT", "DELIVERED", "FAILED"]).optional() }).parse(query);
   const where: Prisma.DeliveryDispatchWhereInput = { ...scope(ctx), status: q.status, ...searchWhere(q.q, ["carrier", "trackingNumber", "receivedByName"]) };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.deliveryDispatch.findMany({ where, include, ...listArgs(q, ["dispatchedAt", "deliveredAt"], "dispatchedAt") }),
       prisma.deliveryDispatch.count({ where }),
     ]),

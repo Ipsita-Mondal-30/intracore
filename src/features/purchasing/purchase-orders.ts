@@ -62,7 +62,7 @@ export async function listPurchaseOrders(ctx: AccessContext, query: unknown) {
     AND: [companyScopeWhere(ctx), { status: q.status, vendorId: q.vendorId, companyId: q.companyId }, searchWhere(q.q, ["number", "notes"])],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.purchaseOrder.findMany({
         where,
         include: { vendor: { select: { id: true, name: true } }, warehouse: { select: { code: true } } },

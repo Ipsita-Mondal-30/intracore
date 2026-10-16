@@ -238,7 +238,7 @@ export async function listContracts(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q, ["number"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.serviceContract.findMany({ where, include: { customer: { select: { id: true, name: true } }, _count: { select: { assets: true } } }, ...listArgs(q, ["createdAt", "endDate", "number", "value"], "createdAt") }),
       prisma.serviceContract.count({ where }),
     ]),

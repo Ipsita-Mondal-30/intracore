@@ -51,7 +51,7 @@ export async function listConsents(ctx: AccessContext, query: unknown) {
     ...searchWhere(q.q?.toLowerCase(), ["address"]),
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.contactConsent.findMany({ where, ...listArgs(q, ["recordedAt", "updatedAt", "address"], "updatedAt") }),
       prisma.contactConsent.count({ where }),
     ]),

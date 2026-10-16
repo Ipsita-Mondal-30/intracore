@@ -74,7 +74,7 @@ export async function listQuotations(ctx: AccessContext, query: unknown) {
     ],
   };
   return paginate(q, () =>
-    prisma.$transaction([
+    Promise.all([
       prisma.quotation.findMany({
         where,
         include: { customer: { select: { id: true, name: true } }, company: { select: { code: true } } },
