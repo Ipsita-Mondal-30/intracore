@@ -57,6 +57,30 @@ const resolvers: Record<string, Resolver> = {
     const allowed = claim.claimantId === ctx.userId || can(ctx, "expense.approve") || can(ctx, "expense.pay");
     return allowed ? { companyId: claim.companyId } : null;
   },
+  employee: companyRecord("employee.view", (ctx, id) =>
+    prisma.employee.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
+  project: companyRecord("project.view", (ctx, id) =>
+    prisma.project.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  project_task: companyRecord("project.view", (ctx, id) =>
+    prisma.projectTask.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { project: { select: { companyId: true } } } }).then((r) => r && { companyId: r.project.companyId, branchId: null })),
+  ticket: companyRecord("ticket.view", (ctx, id) =>
+    prisma.ticket.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  asset: companyRecord("asset.view", (ctx, id) =>
+    prisma.asset.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  service_contract: companyRecord("contract.view", (ctx, id) =>
+    prisma.serviceContract.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  service_visit: companyRecord("field.view", (ctx, id) =>
+    prisma.serviceVisit.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  installation_job: companyRecord("field.view", (ctx, id) =>
+    prisma.installationJob.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  delivery_dispatch: companyRecord("field.view", (ctx, id) =>
+    prisma.deliveryDispatch.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { stockEntry: { select: { companyId: true, branchId: true } } } }).then((r) => r && r.stockEntry)),
+  work_order: companyRecord("manufacturing.view", (ctx, id) =>
+    prisma.workOrder.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  nonconformance: companyRecord("quality.view", (ctx, id) =>
+    prisma.nonConformance.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true } }).then((r) => r && { ...r, branchId: null })),
+  candidate: orgRecord("recruitment.view", (ctx, id) =>
+    prisma.candidate.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { id: true } })),
   vendor_bill: companyRecord("vendor_bill.view", (ctx, id) =>
     prisma.vendorBill.findFirst({ where: { id, organizationId: ctx.organizationId }, select: { companyId: true, branchId: true } })),
 };

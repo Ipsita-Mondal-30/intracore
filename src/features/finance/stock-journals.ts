@@ -19,6 +19,8 @@ const CONTRA: Record<StockEntryType, MappingKey | null> = {
   DELIVERY: "COGS",
   SALES_RETURN: "COGS",
   PURCHASE_RETURN: "GRNI",
+  PRODUCTION_ISSUE: "WORK_IN_PROGRESS",
+  PRODUCTION_RECEIPT: "WORK_IN_PROGRESS",
 };
 
 export async function postStockJournal(tx: Db, userId: string, entry: StockEntry) {
