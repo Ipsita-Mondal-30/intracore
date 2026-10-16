@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { JOBS, runJobs } from "@/lib/jobs";
 import { isCronAuthorized } from "@/lib/cron-auth";
 
+/** Vercel Hobby allows up to 60 s (default 10 s). */
+export const maxDuration = 60;
+
 /**
  * Runs background jobs: ?job=name (repeatable) or all jobs when omitted.
  * Requires `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this header).
