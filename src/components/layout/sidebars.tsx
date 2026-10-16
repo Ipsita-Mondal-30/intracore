@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -175,17 +176,22 @@ export function ModuleRail() {
         </form>
       </div>
 
-      {tip ? (
-        <div
-          role="tooltip"
-          className="pointer-events-none fixed z-[60] max-w-[240px] -translate-y-1/2 rounded-lg bg-[var(--ic-nav-active)] px-3 py-2 text-white shadow-lg"
-          style={{ top: tip.top, left: tip.left }}
-        >
-          <span className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-[var(--ic-nav-active)]" aria-hidden />
-          <p className="text-xs font-semibold">{tip.title}</p>
-          <p className="mt-0.5 text-[11px] leading-snug text-white/75">{tip.hint}</p>
-        </div>
-      ) : null}
+      {/* Portalled to <body>: the sticky rail and sidebar each form their own stacking
+          context, so a tooltip rendered inside the rail would sit under the sidebar. */}
+      {tip
+        ? createPortal(
+            <div
+              role="tooltip"
+              className="pointer-events-none fixed z-[1000] max-w-[260px] -translate-y-1/2 rounded-lg bg-[#1f2937] px-3 py-2 text-white shadow-xl ring-1 ring-black/10"
+              style={{ top: tip.top, left: tip.left }}
+            >
+              <span className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-[#1f2937]" aria-hidden />
+              <p className="text-xs font-semibold">{tip.title}</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-gray-300">{tip.hint}</p>
+            </div>,
+            document.body,
+          )
+        : null}
     </aside>
   );
 }
