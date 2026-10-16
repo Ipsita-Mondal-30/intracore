@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { seedOrganizationRoles } from "@/lib/permissions/seed-org-roles";
 import { seedOrganizationLeadDefaults } from "@/lib/leads/seed-defaults";
 import { seedDefaultCompany } from "@/features/companies/service";
+import { seedCatalogDefaults } from "@/features/catalog/defaults";
 import { buildAccessContext } from "@/lib/access";
 
 /**
@@ -27,6 +28,7 @@ export async function createOrg(name = "Org") {
   const roles = await seedOrganizationRoles(prisma, org.id);
   await seedOrganizationLeadDefaults(prisma, org.id);
   const company = await seedDefaultCompany(prisma, org);
+  await seedCatalogDefaults(prisma, org.id);
   const branch = await prisma.branch.findFirstOrThrow({ where: { companyId: company.id } });
   await prisma.organizationMember.create({
     data: { organizationId: org.id, userId: ownerId, roleId: roles.get("owner")!, isOwner: true },

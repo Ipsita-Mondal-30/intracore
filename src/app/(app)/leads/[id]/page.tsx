@@ -35,6 +35,7 @@ export default async function LeadDetailPage({
       }))}
       lastUpdated={format(new Date(), "h.mm a dd MMM yyyy")}
       canEdit={hasPermission(tenant, "lead.edit")}
+      canConvert={hasPermission(tenant, "lead.convert")}
       openDialOnMount={openDialOnMount}
     />
   );

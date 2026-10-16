@@ -1,6 +1,7 @@
 import { purgeExpiredIdempotencyKeys } from "@/lib/api/idempotency";
 import { sendFollowUpReminderEmails } from "@/lib/email/follow-up-reminders";
 import { processDueTaskReminders } from "@/features/tasks/service";
+import { expireQuotations } from "@/features/sales/quotations";
 
 /**
  * Background jobs. Each is idempotent and safe to run on any schedule; the runner is
@@ -11,11 +12,8 @@ export const JOBS: Record<string, () => Promise<unknown>> = {
   "task-reminders": () => processDueTaskReminders(),
   "follow-up-reminder-emails": () => sendFollowUpReminderEmails(),
   "idempotency-cleanup": () => purgeExpiredIdempotencyKeys(),
+  "quotation-expiry": () => expireQuotations(),
 };
-
-export function registerJob(name: string, run: () => Promise<unknown>) {
-  JOBS[name] = run;
-}
 
 export async function runJobs(names: string[]) {
   const results: Record<string, unknown> = {};

@@ -4,7 +4,7 @@ export class ApiError extends Error {
     message: string,
     public readonly code: string,
     public readonly status: number,
-    public readonly details?: { path: string; message: string }[],
+    public readonly details?: Record<string, unknown>[],
   ) {
     super(message);
   }

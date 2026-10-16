@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
  * - names may be dotted ("settings.quotation.approvalAmount") to build nested objects
  * - type=number inputs send numbers, checkboxes send booleans, empty fields are omitted
  *   (or sent as null when the input has data-nullable)
+ * - data-json inputs are parsed as JSON; data-split="a,b" selects split "x:y" into a and b
  * - `redirect` may contain ":id", replaced with the created record's id
  */
 export function ApiForm({
@@ -54,7 +55,15 @@ export function ApiForm({
       if (method === "POST" && !redirect) form.reset();
     } catch (error) {
       if (error instanceof ApiError) {
-        setErrors(Object.fromEntries((error.details ?? []).map((d) => [d.path, d.message])));
+        setErrors(
+          Object.fromEntries(
+            (error.details ?? []).map((d: Record<string, unknown>, i) =>
+              d.path !== undefined
+                ? [String(d.path), String(d.message)]
+                : [`match ${i + 1}`, `${d.name ?? d.id}${Array.isArray(d.matchedOn) ? ` (same ${d.matchedOn.join(", ")})` : ""}`],
+            ),
+          ),
+        );
         toast.error(error.message);
       } else {
         toast.error("Something went wrong");
@@ -90,7 +99,14 @@ function formValues(form: HTMLFormElement) {
     if (!(el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement)) continue;
     if (!el.name || el.disabled) continue;
     let value: unknown;
-    if (el instanceof HTMLInputElement && el.type === "checkbox") value = el.checked;
+    // <select data-split="companyId,branchId"> with value "a:b" fills two fields.
+    const split = el.getAttribute("data-split");
+    if (split && el.value) {
+      split.split(",").forEach((name, i) => setPath(out, name.split("."), el.value.split(":")[i]));
+      continue;
+    }
+    if (el.hasAttribute("data-json")) value = JSON.parse(el.value || "null");
+    else if (el instanceof HTMLInputElement && el.type === "checkbox") value = el.checked;
     else if (el.value === "") {
       if (!el.hasAttribute("data-nullable")) continue;
       value = null;
@@ -107,7 +123,8 @@ function setPath(target: Record<string, unknown>, keys: string[], value: unknown
     target[head] = value;
     return;
   }
-  target[head] = (target[head] as Record<string, unknown>) ?? {};
+  // A numeric next key ("lines.0.qty") builds an array.
+  target[head] = (target[head] as Record<string, unknown>) ?? (/^\d+$/.test(rest[0]) ? [] : {});
   setPath(target[head] as Record<string, unknown>, rest, value);
 }
 

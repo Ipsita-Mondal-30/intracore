@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { orgSettings } from "@/lib/settings";
 
 export type DuplicateMatch = {
   id: string;
@@ -20,6 +21,19 @@ export async function findDuplicateLeads(
   },
   excludeLeadId?: string,
 ): Promise<DuplicateMatch[]> {
+  // Which fields count as a match is configurable per organization (CRM settings).
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { settings: true },
+  });
+  const rules = new Set<string>(orgSettings(org?.settings).duplicates.lead);
+  input = {
+    email: rules.has("email") ? input.email : null,
+    phone: rules.has("phone") ? input.phone : null,
+    whatsappNumber: rules.has("whatsapp") ? input.whatsappNumber : null,
+    company: rules.has("company") ? input.company : null,
+  };
+
   const or: Prisma.LeadWhereInput[] = [];
   if (input.email) or.push({ email: { equals: input.email, mode: "insensitive" } });
   if (input.phone) or.push({ phone: input.phone });
